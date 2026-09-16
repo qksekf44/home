@@ -1391,13 +1391,6 @@ export default function RelDetailPage() {
 
       {/* 관리자 액션 (좌상단) */}
       <div className="rel-admin-actions">
-        <button
-          className="btn btn-dark"
-          style={{ height: 30, padding: "0 13px", fontSize: 11 }}
-          onClick={() => router.push(`/rels`)}
-        >
-          LIST
-        </button>
         {isAdmin && (
           <>
             {/* AU 선택 중이면 그 AU의 일러·캐치프레이즈를 편집 (v1.9) */}
@@ -1424,6 +1417,13 @@ export default function RelDetailPage() {
             </button>
           </>
         )}
+        <button
+          className="btn btn-dark"
+          style={{ height: 30, padding: "0 13px", fontSize: 11 }}
+          onClick={() => router.push(`/rels`)}
+        >
+          LIST
+        </button>
       </div>
 
       {/* AU 하나만 삭제 (v2.0 사용자 발견) — 자관 삭제와 확실히 구분되게 무엇이 남는지까지 적는다 */}
