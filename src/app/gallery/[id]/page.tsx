@@ -123,12 +123,12 @@ export default function BackupDetailPage() {
         </p>
 
         <div className="head-actions">
-          {/* <button
+          <button
             className="btn btn-dark"
-            onClick={() => router.push(`/gallery/${p.id}/edit`)}
+            onClick={() => router.push(`/gallery`)}
           >
-            EDIT
-          </button> */}
+            LIST
+          </button>
           {canManage && (
             <button
               className="btn btn-dark"
