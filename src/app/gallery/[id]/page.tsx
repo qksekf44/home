@@ -146,10 +146,7 @@ export default function BackupDetailPage() {
       </div>
 
       {/* 본문만 폭 제한 — 헤더는 풀폭 위치 유지 */}
-      <div
-        className="panel"
-        style={{ padding: 20, maxWidth: 960, margin: "0 auto" }}
-      >
+      <div className="panel" style={{ padding: 20, margin: "0 auto" }}>
         {/* 제목·뱃지 세로 중앙 정렬 + 아래 여백 확보 */}
         <h2
           style={{
