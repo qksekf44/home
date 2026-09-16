@@ -1456,10 +1456,10 @@ a {
   color: var(--sub);
   background: #fff;
 }
-.btn-ghost:hover {
+/* .btn-ghost:hover {
   border-color: var(--steel-3);
   color: var(--ink);
-}
+} */
 .btn-accent {
   background: var(--accent);
   color: #fff;

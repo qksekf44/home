@@ -236,7 +236,6 @@ function BoardInner() {
           style={board.fg ? { color: board.fg } : undefined}
         >
           {pageList.map((p) => {
-            console.log(p);
             return (
               <div
                 className="brow"

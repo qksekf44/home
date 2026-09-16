@@ -50,8 +50,6 @@ function BackupPageInner() {
     }
   }, [menuLoaded, viewInit, menuSet.backupView]);
   const { st: boardSet } = useBoardSettings(); // 유형 뱃지 색 (환경설정 > 게시판 관리)
-  const typeBadge = (t: "log" | "single" | "vlist") =>
-    boardSet.gallery.find((b) => b.id === t);
   const [q, setQ] = useState("");
   const [unveiled, setUnveiled] = useState<Record<string, boolean>>({});
 

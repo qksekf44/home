@@ -18,7 +18,7 @@ import {
   commentsFor,
 } from "@/lib/postStore";
 import { RoadItem, ROAD_SEED } from "@/lib/galleryStore";
-import { SearchBar, KInput } from "@/components/ui/Kit";
+import { SearchBar, KInput, Pager } from "@/components/ui/Kit";
 import { putBlob, useBlobUrl } from "@/lib/blobStore";
 import { Modal, ConfirmModal, useConfirmDelete } from "@/components/ui/Modal";
 import { EditableDesc, PageTitle } from "@/components/ui/PageText";
@@ -600,46 +600,8 @@ function RoadviewPageInner() {
           그림이 없습니다
         </div>
       )}
-      {visible.length > 0 && totalPages > 1 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 6,
-            marginTop: 6,
-          }}
-        >
-          <button
-            className="btn btn-ghost"
-            style={{ background: "rgba(255,255,255,.9)" }}
-            disabled={curPage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            이전
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              className="btn btn-ghost"
-              style={{
-                background:
-                  n === curPage ? "var(--accent)" : "rgba(255,255,255,.9)",
-                color: n === curPage ? "#fff" : undefined,
-              }}
-              onClick={() => setPage(n)}
-            >
-              {n}
-            </button>
-          ))}
-          <button
-            className="btn btn-ghost"
-            style={{ background: "rgba(255,255,255,.9)" }}
-            disabled={curPage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            다음
-          </button>
-        </div>
+      {visible.length > PAGE_SIZE && (
+        <Pager page={curPage} total={totalPages} onChange={setPage} />
       )}
       {/* 편집 모달 (제목 · 수위 접기) */}
       <Modal
