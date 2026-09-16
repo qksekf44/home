@@ -7750,3 +7750,13 @@ body.edit-on .main-grid.gridlines .wgt {
   background: rgba(28, 31, 36, 0.55);
   backdrop-filter: blur(14px);
 }
+
+.page.loadb-container {
+  width: 100% !important;
+}
+
+@media (min-width: 769px) {
+  .page.loadb-container {
+    width: var(--desktop-width, 70%) !important;
+  }
+}

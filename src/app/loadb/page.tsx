@@ -530,7 +530,7 @@ function RoadviewPageInner() {
   }, [q]);
 
   return (
-    <section className="page">
+    <section className="page loadb-container">
       <div className="page-head">
         <PageTitle>{sec.id === "main" ? "LOAD-B" : sec.name}</PageTitle>
         <EditableDesc k="roadview-desc" def="그림이 좋아서 모았습니다" />
