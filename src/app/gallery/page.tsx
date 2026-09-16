@@ -15,7 +15,11 @@ import { BackupPost, BACKUP_SEED } from "@/lib/galleryStore";
 import { SearchBar, Pager } from "@/components/ui/Kit";
 import { CroppedBlobImg } from "@/components/ui/CropEditor";
 import { EditableDesc, PageTitle } from "@/components/ui/PageText";
-import { useBoardSettings, boardBadgeStyle } from "@/lib/boardStore";
+import {
+  useBoardSettings,
+  boardBadgeStyle,
+  DEFAULT_BOARD_SYSTEM,
+} from "@/lib/boardStore";
 import { useMainStore } from "@/lib/mainStore";
 import { useCardSort, mergeOrder } from "@/lib/cardSort";
 import { useMenuSettings, canGalleryWrite } from "@/lib/menuStore";
@@ -210,7 +214,13 @@ function BackupPageInner() {
         }}
       >
         {paged.map((p) => {
-          console.log(!p?.fold);
+          const foldBadge = p.fold
+            ? (boardSet?.system ?? DEFAULT_BOARD_SYSTEM).find(
+                (item) => item.id === p.fold?.type,
+              )
+            : null;
+
+          console.log(p);
           return (
             <div
               key={p.id}
@@ -228,16 +238,14 @@ function BackupPageInner() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <b>
                   {p.title}
-                  {p.fold ? (
-                    <></>
-                  ) : (
+                  {p.fold && foldBadge && (
                     <span
                       style={{
-                        ...boardBadgeStyle(typeBadge(p.type)),
+                        ...boardBadgeStyle(foldBadge),
                         marginLeft: 6,
                       }}
                     >
-                      {typeBadge(p.type)?.label}
+                      {foldBadge.label}
                     </span>
                   )}
                 </b>
