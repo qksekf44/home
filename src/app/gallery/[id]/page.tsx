@@ -139,19 +139,24 @@ export default function BackupDetailPage() {
       </div>
     );
   };
-
-  console.log(p.title, p.desc, p.images);
+  console.log(p);
+  console.log(p.title, p.desc, p.images[0]);
 
   return (
     <>
       <ArticleJsonLd
-        headline={p.title}
-        description={p.desc?.replace(/<[^>]*>/g, "").slice(0, 160) || p.title}
-        image={
-          p.images.length > 0
-            ? p.images[0]
-            : ["https://example.com/placeholder.jpg"]
-        }
+        headline="Getting Started with Next SEO"
+        datePublished="2024-01-01T08:00:00+00:00"
+        author="John Doe"
+        image="https://example.com/article-image.jpg"
+        description="Learn how to improve your Next.js SEO"
+        // headline={p.title}
+        // description={p.desc?.replace(/<[^>]*>/g, "").slice(0, 160) || p.title}
+        // image={
+        //   p.images.length > 0
+        //     ? p.images[0]
+        //     : ["https://example.com/placeholder.jpg"]
+        // }
       />
 
       <section className="page">
