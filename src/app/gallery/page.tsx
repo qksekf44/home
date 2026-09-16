@@ -220,7 +220,6 @@ function BackupPageInner() {
               )
             : null;
 
-          console.log(p);
           return (
             <div
               key={p.id}

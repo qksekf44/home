@@ -6864,7 +6864,8 @@ body.edit-on .main-grid.gridlines .wgt {
   font-size: calc(16.5px * var(--fs, 1));
 }
 .post-body p {
-  margin: 8px 0;
+  /* margin: 8px 0; */
+  line-height: 1.4; /* 자간 수정 */
 }
 /* 빈 줄 (v2.0 사용자 발견) — 에디터가 만든 빈 문단은 내용이 없어 높이가 0이라 그냥 사라져 보였다.
    보이지 않는 공백을 하나 넣어 한 줄만큼의 자리를 만든다 */
