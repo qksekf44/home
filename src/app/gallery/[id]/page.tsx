@@ -140,6 +140,8 @@ export default function BackupDetailPage() {
     );
   };
 
+  console.log(p.title, p.desc, p.images);
+
   return (
     <>
       <ArticleJsonLd
@@ -147,7 +149,7 @@ export default function BackupDetailPage() {
         description={p.desc?.replace(/<[^>]*>/g, "").slice(0, 160) || p.title}
         image={
           p.images.length > 0
-            ? p.images
+            ? p.images[0]
             : ["https://example.com/placeholder.jpg"]
         }
       />
