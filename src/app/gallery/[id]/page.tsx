@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { BACKUP_SEED, BackupPost } from "@/lib/galleryStore";
+import { BACKUP_SEED } from "@/lib/galleryStore";
 import BackupDetailPage from "./BackupDetailPage";
 
 interface Props {
