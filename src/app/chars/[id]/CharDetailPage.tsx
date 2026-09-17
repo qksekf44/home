@@ -3,6 +3,7 @@
 // 스크롤: 정보가 길면 페이지가 이어지고 탭·아트는 스티키 (v1.9)
 // AU 선택 시 프로필 전체(이름·스펙·아트·탭·소개)가 그 AU의 값으로 전환 (charWithAu) —
 // 편집은 EDIT → /chars/[id]/edit?au= 전용 페이지에서 새 프로필처럼 작성 (v1.9 사용자 확정)
+// 대표 아트는 크롭(위치 조정) 없이 object-fit: contain으로 전체 노출 (v2.1)
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
@@ -20,13 +21,8 @@ import {
 import { sanitizeHtml } from "@/lib/sanitize";
 import { useFonts } from "@/lib/fontStore";
 import { useTheme } from "@/lib/ThemeProvider";
-import { createPortal } from "react-dom";
-import { BlobImg, useBlobUrl } from "@/lib/blobStore";
-import {
-  CroppedBlobImg,
-  CropEditor,
-  type CropValue,
-} from "@/components/ui/CropEditor";
+import { BlobImg } from "@/lib/blobStore";
+import { CroppedBlobImg } from "@/components/ui/CropEditor";
 
 import { EditableDesc, PageTitle } from "@/components/ui/PageText";
 import { useSectionTitle } from "@/lib/sectionStore";
@@ -78,56 +74,11 @@ function CharDetailInner() {
   );
   // AU 편집에서 ?au= 로 돌아오면 그 AU가 선택된 채 시작
   const [auKey, setAuKey] = useState<string | null>(() => params.get("au"));
-  // 대표 아트 우클릭 → 상세 화면에 보일 위치 조정 (v2.0)
-  const [artCtx, setArtCtx] = useState<{
-    x: number;
-    y: number;
-    ref: string;
-  } | null>(null);
-  // 편집 중인 아트 참조 + 그때 실제 표시 영역의 가로/세로 비 (3:4가 아니라 화면 높이에 따라 달라진다)
-  const [artCropOpen, setArtCropOpen] = useState<{
-    ref: string;
-    ratio: number;
-  } | null>(null);
-  const artBoxRef = useRef<HTMLDivElement>(null);
-  const artBoxRatio = () => {
-    const r = artBoxRef.current?.getBoundingClientRect();
-    return r && r.height > 1 ? r.width / r.height : 3 / 4;
-  };
-  useEffect(() => {
-    if (!artCtx) return;
-    const close = () => setArtCtx(null);
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setArtCtx(null);
-    };
-    window.addEventListener("click", close);
-    window.addEventListener("keydown", key);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("keydown", key);
-    };
-  }, [artCtx]);
+
   // AU는 "새로 등록"하는 프로필 (v1.9 사용자 확정) — 등록 전엔 base를 보여주지 않고 등록 안내
   const auRegistered = !auKey || !!ch?.auProfiles?.[auKey];
   // 표시용 캐릭터 — AU에서 지정한 필드만 base를 대체 (이름·키·성별부터 전부 바뀔 수 있음)
   const eff = ch ? charWithAu(ch, auKey) : undefined;
-
-  /** 상세 화면 아트 위치 저장 (v2.0) — AU를 보는 중이면 그 AU에만, 아니면 원본에 */
-  const saveArtCrop = (c: CropValue | undefined) => {
-    setChars(
-      chars.map((x) => {
-        if (x.id !== id) return x;
-        if (!auKey) return { ...x, artCrop: c };
-        return {
-          ...x,
-          auProfiles: {
-            ...x.auProfiles,
-            [auKey]: { ...x.auProfiles?.[auKey], artCrop: c },
-          },
-        };
-      }),
-    );
-  };
 
   // AU 전환 시 탭 구성·아트가 달라지므로 리셋
   useEffect(() => {
@@ -368,7 +319,8 @@ function CharDetailInner() {
             )}
           </div>
 
-          {/* 중앙 아트 — 스티키 · 추가 아트가 있으면 클릭으로 넘겨보기 */}
+          {/* 중앙 아트 — 스티키 · 추가 아트가 있으면 클릭으로 넘겨보기
+              크롭(위치 조정) 없이 object-fit: contain으로 이미지 전체가 잘리지 않게 표시 (v2.1) */}
           {(() => {
             const arts =
               eff.arts && eff.arts.length > 0
@@ -387,31 +339,19 @@ function CharDetailInner() {
             return (
               <div
                 className="profile-center"
-                ref={artBoxRef}
                 style={{ cursor: arts.length > 1 ? "pointer" : undefined }}
                 onClick={() => {
                   if (arts.length > 1) setArtIdx((i) => (i + 1) % arts.length);
                 }}
-                /* 대표 아트 우클릭 → 이 화면에 보일 위치 조정 (관리자, v2.0 사용자 확정) */
-                onContextMenu={(e) => {
-                  if (
-                    !(isAdmin || charGrant(ch, user?.id) === "edit") ||
-                    cur !== 0
-                  )
-                    return;
-                  e.preventDefault();
-                  setArtCtx({ x: e.clientX, y: e.clientY, ref: arts[0] });
-                }}
               >
-                {/* 지정한 크롭 위치를 여기서도 쓴다 — 예전에는 가운데 기준으로 잘려서
-                  리스트에서 맞춰 둔 위치와 다른 곳이 보였다 (대표 아트에만 적용) */}
-                {/* 리스트 썸네일 크롭은 3:4 기준이라 여기(화면 높이에 따라 비율이 달라지는 영역)에는
-                  맞지 않는다 — 여기서 따로 잡은 값이 있을 때만 쓰고, 없으면 가운데 기준 (v2.0) */}
-                <CroppedBlobImg
+                <BlobImg
                   fileRef={arts[cur] ?? eff.artUrl}
-                  // crop={cur === 0 ? eff.artCrop : undefined}
-                  ph={ch.thumbClass}
-                  label="CHARACTER FULL ART"
+                  alt="CHARACTER FULL ART"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
                 />
                 {arts.length > 1 && (
                   <div
@@ -543,80 +483,7 @@ function CharDetailInner() {
           </div>
         </div>
       )}
-
-      {/* 대표 아트 우클릭 메뉴 (v2.0) — 상세 화면에 보일 위치 조정 */}
-      {artCtx &&
-        createPortal(
-          <div
-            className="ctx-menu on"
-            style={{ left: artCtx.x, top: artCtx.y }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="ctx-ttl">대표 아트</div>
-            <button
-              onClick={() => {
-                setArtCropOpen({ ref: artCtx.ref, ratio: artBoxRatio() });
-                setArtCtx(null);
-              }}
-            >
-              이미지 위치 조정
-            </button>
-            {eff?.artCrop && (
-              <button
-                onClick={() => {
-                  saveArtCrop(undefined);
-                  setArtCtx(null);
-                }}
-              >
-                위치 지정 해제
-              </button>
-            )}
-          </div>,
-          document.body,
-        )}
-      {artCropOpen && (
-        <ArtCropModal
-          fileRef={artCropOpen.ref}
-          ratio={artCropOpen.ratio}
-          crop={eff?.artCrop}
-          onClose={() => setArtCropOpen(null)}
-          onApply={(c) => {
-            saveArtCrop(c);
-            setArtCropOpen(null);
-          }}
-        />
-      )}
     </section>
-  );
-}
-
-/** 상세 아트 위치 편집기 (v2.0) — 실제 표시 영역의 비율 그대로 열어야 보이는 대로 맞출 수 있다.
- *  이 영역은 화면 높이에 따라 달라지므로 고정 비율(3:4 등)을 쓰면 편집기와 결과가 어긋난다. */
-function ArtCropModal({
-  fileRef,
-  ratio,
-  crop,
-  onClose,
-  onApply,
-}: {
-  fileRef: string;
-  ratio: number;
-  crop?: CropValue;
-  onClose: () => void;
-  onApply: (c: CropValue) => void;
-}) {
-  const url = useBlobUrl(fileRef);
-  if (!url) return null;
-  return (
-    <CropEditor
-      open
-      src={url}
-      aspect={ratio}
-      aspectLabel="상세 화면과 같은 비율"
-      initial={crop}
-      onClose={onClose}
-      onApply={onApply}
-    />
   );
 }
 

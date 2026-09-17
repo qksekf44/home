@@ -4186,7 +4186,7 @@ body.edit-on .main-grid.gridlines .wgt {
   overflow: hidden;
   position: sticky;
   top: 10px;
-  height: calc(100vh - 150px);
+  /* height: calc(100vh - 150px); */
   min-height: 480px;
 }
 .profile-center img {
