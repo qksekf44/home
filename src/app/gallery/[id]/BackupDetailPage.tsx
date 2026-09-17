@@ -190,8 +190,12 @@ export default function BackupDetailPage({ id }: { id: string }) {
         </h2>
         {p.desc && (
           <div
-            className="post-body"
-            style={{ fontSize: 12.5, margin: "0 0 16px" }}
+            className="post-body gallery-text-style"
+            style={{
+              margin: "0 0 16px",
+              fontSize: "14px",
+              lineHeight: 1.8,
+            }}
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(p.desc) }}
           />
         )}

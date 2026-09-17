@@ -409,7 +409,7 @@ function CharDetailInner() {
                   맞지 않는다 — 여기서 따로 잡은 값이 있을 때만 쓰고, 없으면 가운데 기준 (v2.0) */}
                 <CroppedBlobImg
                   fileRef={arts[cur] ?? eff.artUrl}
-                  crop={cur === 0 ? eff.artCrop : undefined}
+                  // crop={cur === 0 ? eff.artCrop : undefined}
                   ph={ch.thumbClass}
                   label="CHARACTER FULL ART"
                 />

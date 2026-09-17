@@ -318,7 +318,7 @@ export default function BoardDetailPage() {
             </div>
           )}
           <div
-            className="post-body"
+            className="post-body gallery-text-style"
             style={
               post.fold && !open
                 ? { minHeight: 120, filter: "blur(6px)" }

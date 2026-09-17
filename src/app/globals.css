@@ -4222,8 +4222,9 @@ body.edit-on .main-grid.gridlines .wgt {
   display: grid;
   grid-template-columns: 76px 1fr;
   gap: 7px 10px;
-  font-size: calc(12.5px * var(--fs, 1));
-  margin-bottom: 18px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  line-height: 1.8;
 }
 .spec dt {
   color: var(--faint);
@@ -6865,7 +6866,7 @@ body.edit-on .main-grid.gridlines .wgt {
 }
 .post-body p {
   /* margin: 8px 0; */
-  line-height: 1.4; /* 자간 수정 */
+  line-height: 1.4;
 }
 /* 빈 줄 (v2.0 사용자 발견) — 에디터가 만든 빈 문단은 내용이 없어 높이가 0이라 그냥 사라져 보였다.
    보이지 않는 공백을 하나 넣어 한 줄만큼의 자리를 만든다 */
@@ -7759,4 +7760,14 @@ body.edit-on .main-grid.gridlines .wgt {
   .page.loadb-container {
     width: var(--desktop-width, 70%) !important;
   }
+}
+
+.gallery-text-style {
+  color: #2c3037;
+  word-break: break-word;
+}
+
+.gallery-text-style p {
+  font-size: 14px;
+  line-height: 1.8 !important;
 }
