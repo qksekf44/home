@@ -16,7 +16,6 @@ export async function generateMetadata({
     const snap = await db.collection("characters").doc(id).get();
 
     if (!snap.exists) {
-      console.error("❌ [META] Document not found:", id);
       return { title: "CHARACTER" };
     }
 
@@ -55,12 +54,6 @@ export async function generateMetadata({
         images: image ? [image] : [],
       },
     };
-
-    console.log("✅ [META] Generated:", {
-      title,
-      hasImage: !!image,
-      imageUrl: image ? `${image.substring(0, 50)}...` : "none",
-    });
 
     return result;
   } catch (error) {
