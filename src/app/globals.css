@@ -7765,6 +7765,7 @@ body.edit-on .main-grid.gridlines .wgt {
 .gallery-text-style {
   color: #2c3037;
   word-break: break-word;
+  text-align: justify;
 }
 
 .gallery-text-style p {

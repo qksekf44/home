@@ -146,6 +146,7 @@ export default function IntroPage() {
             style={{
               fontSize: "14px",
               lineHeight: 1.8,
+              textAlign: "justify",
             }}
           />
         )}
