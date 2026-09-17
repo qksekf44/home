@@ -30,6 +30,7 @@ import { GuestIdBar } from "@/components/ui/GuestId";
 import { useToast } from "@/components/ui/Toast";
 import { PageTitle } from "@/components/ui/PageText";
 import { pushNotif } from "@/lib/notifStore";
+import LinkIcon from "@/components/ui/LinkIcon";
 
 const FOLD_LABEL = { spoiler: "스포일러 주의", adult: "수위 주의" };
 
@@ -225,6 +226,14 @@ export default function BoardDetailPage() {
     </div>
   );
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
+
   return (
     <section className="page">
       <div className="page-head">
@@ -259,9 +268,18 @@ export default function BoardDetailPage() {
       </div>
 
       <div className="panel" style={{ padding: "26px 28px" }}>
-        <h2 style={{ fontSize: 19, marginBottom: 4 }}>
+        <h2
+          style={{
+            fontSize: 19,
+            marginBottom: 4,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           {post.secret && "🔒 "}
           {post.title}
+          <LinkIcon onClick={handleCopy} />
         </h2>
         <p style={{ fontSize: 11, color: "var(--faint)", marginBottom: 18 }}>
           {post.author} · {fmtDate(post.date)} · {post.mode.toUpperCase()}

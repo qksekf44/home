@@ -31,6 +31,7 @@ import {
 import { EditableDesc, PageTitle } from "@/components/ui/PageText";
 import { useSectionTitle } from "@/lib/sectionStore";
 import { ConfirmModal } from "@/components/ui/Modal";
+import LinkIcon from "@/components/ui/LinkIcon";
 
 function CharDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -152,6 +153,14 @@ function CharDetailInner() {
     () => (loaded && eff ? sanitizeHtml(eff.basicHtml) : ""),
     [loaded, eff],
   );
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
 
   if (!loaded) return <section className="page" />;
   if (!ch || !eff) {
@@ -452,9 +461,13 @@ function CharDetailInner() {
                 fontWeight: (eff.nameBold ?? true) ? 600 : 400,
                 letterSpacing: ".2em",
                 lineHeight: 1.1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
               {eff.name}
+              <LinkIcon onClick={handleCopy} />
             </div>
             <div className="sub" style={{ marginBottom: 14 }}>
               {eff.sub}

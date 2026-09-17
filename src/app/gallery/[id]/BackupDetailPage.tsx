@@ -13,6 +13,7 @@ import { sanitizeHtml } from "@/lib/sanitize";
 import { PageTitle } from "@/components/ui/PageText";
 import { Lightbox } from "@/components/ui/Lightbox";
 import { useBoardSettings, boardBadgeStyle } from "@/lib/boardStore";
+import LinkIcon from "@/components/ui/LinkIcon";
 
 export default function BackupDetailPage({ id }: { id: string }) {
   const router = useRouter();
@@ -51,6 +52,14 @@ export default function BackupDetailPage({ id }: { id: string }) {
       </section>
     );
   }
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+    }
+  };
 
   const imgs: { url?: string; ph?: string }[] = p.images.length
     ? p.images.map((u) => ({ url: u }))
@@ -157,17 +166,27 @@ export default function BackupDetailPage({ id }: { id: string }) {
             display: "flex",
             alignItems: "center",
             gap: 8,
+            justifyContent: "space-between",
           }}
         >
-          {p.title}
-          <span
-            style={boardBadgeStyle(
-              boardSet.gallery.find((b) => b.id === p.type),
-            )}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+            }}
           >
-            {p.category}
-            {/* {boardSet.gallery.find((b) => b.id === p.type)?.label} */}
-          </span>
+            {p.title}
+            <span
+              style={boardBadgeStyle(
+                boardSet.gallery.find((b) => b.id === p.type),
+              )}
+            >
+              {p.category}
+              {/* {boardSet.gallery.find((b) => b.id === p.type)?.label} */}
+            </span>
+          </div>
+          <LinkIcon onClick={handleCopy} />
         </h2>
         {p.desc && (
           <div
