@@ -13,24 +13,16 @@ export async function generateMetadata({
 
   try {
     const db = adminDb();
-
-    // 🔍 디버깅 로그
-    console.log("📌 [generateMetadata] ID:", id);
-    console.log("📌 [generateMetadata] DB initialized:", !!db);
-
     const snap = await db.collection("gallery").doc(id).get();
 
-    console.log("📌 [generateMetadata] Snap exists:", snap.exists);
-
     if (!snap.exists) {
-      console.warn("⚠️ Document not found:", id);
       return { title: "GALLERY" };
     }
 
     const raw = snap.data();
-    console.log("📌 [generateMetadata] Raw data:", raw);
 
-    const post = raw as
+    // ✅ raw.data 안에 images가 있음!
+    const post = raw?.data as
       | {
           title?: string;
           desc?: string;
@@ -40,9 +32,7 @@ export async function generateMetadata({
 
     const title = post?.title?.trim() || "GALLERY";
     const description = post?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
-    const image = post?.images?.[0];
-
-    console.log("✅ [generateMetadata] Image URL:", image);
+    const image = post?.images?.[0]; // ✅ 이제 제대로 작동
 
     return {
       title,
@@ -61,7 +51,7 @@ export async function generateMetadata({
       },
     };
   } catch (error) {
-    console.error("❌ [generateMetadata] Error:", error);
+    console.error("Error:", error);
     return { title: "GALLERY" };
   }
 }
