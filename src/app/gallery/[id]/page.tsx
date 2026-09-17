@@ -13,16 +13,24 @@ export async function generateMetadata({
 
   try {
     const db = adminDb();
+
+    // 🔍 디버깅 로그
+    console.log("📌 [generateMetadata] ID:", id);
+    console.log("📌 [generateMetadata] DB initialized:", !!db);
+
     const snap = await db.collection("gallery").doc(id).get();
 
+    console.log("📌 [generateMetadata] Snap exists:", snap.exists);
+
     if (!snap.exists) {
-      return {
-        title: "GALLERY",
-      };
+      console.warn("⚠️ Document not found:", id);
+      return { title: "GALLERY" };
     }
 
     const raw = snap.data();
-    const post = raw?.data as
+    console.log("📌 [generateMetadata] Raw data:", raw);
+
+    const post = raw as
       | {
           title?: string;
           desc?: string;
@@ -32,8 +40,9 @@ export async function generateMetadata({
 
     const title = post?.title?.trim() || "GALLERY";
     const description = post?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
-
     const image = post?.images?.[0];
+
+    console.log("✅ [generateMetadata] Image URL:", image);
 
     return {
       title,
@@ -42,19 +51,18 @@ export async function generateMetadata({
         title,
         description,
         type: "article",
-        ...(image ? { images: [{ url: image }] } : {}),
+        images: image ? [image] : [],
       },
       twitter: {
         card: image ? "summary_large_image" : "summary",
         title,
         description,
-        ...(image ? { images: [image] } : {}),
+        images: image ? [image] : [],
       },
     };
-  } catch {
-    return {
-      title: "GALLERY",
-    };
+  } catch (error) {
+    console.error("❌ [generateMetadata] Error:", error);
+    return { title: "GALLERY" };
   }
 }
 
