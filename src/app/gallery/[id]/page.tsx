@@ -17,35 +17,41 @@ export async function generateMetadata({
     const snap = await db.collection("gallery").doc(id).get();
 
     if (!snap.exists) {
+      console.log(`🔍 [DEBUG] Document for id '${id}' does not exist.`);
       return { title: "GALLERY" };
     }
 
-    const raw = snap.data()?.data;
+    // JSON 구조에 맞춰 raw 데이터를 가져옵니다.
+    const raw = (snap.data()?.data || snap.data()) as {
+      title?: string;
+      desc?: string;
+      images?: string[];
+      fold?: { type?: string } | null;
+      password?: string | null;
+      type?: { password?: string } | string;
+    };
 
-    // 조건값 개별 추출 및 출력
     const foldType = raw?.fold?.type;
-    const typePassword = raw?.password;
-
-    // 조건 판별 결과
     const isSpoiler = foldType === "spoiler";
     const isAdult = foldType === "adult";
-    const hasPassword = typePassword !== undefined;
 
+    // 2. 비밀번호 체크: raw.password 또는 raw.type.password 에 유효한 문자열이 있는지 체크
+    const passwordValue =
+      raw?.password ||
+      (typeof raw?.type === "object" ? raw?.type?.password : undefined);
+    const hasPassword = Boolean(
+      passwordValue && String(passwordValue).trim() !== "",
+    );
+
+    // 3. 하나라도 걸리면 보호 대상 (이미지 비공개)
     const isProtected = isSpoiler || isAdult || hasPassword;
 
-    const post = raw?.data as
-      | {
-          title?: string;
-          desc?: string;
-          images?: string[];
-        }
-      | undefined;
+    // 제목, 설명, 이미지 추출 (raw에서 바로 가져옴)
+    const title = raw?.title?.trim() || "GALLERY";
+    const description = raw?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
 
-    const title = post?.title?.trim() || "GALLERY";
-    const description = post?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
-
-    // 보호 대상인 경우 이미지를 undefined 처리
-    const rawImage = post?.images?.[0];
+    // isProtected가 true면 undefined 처리 (이미지 숨김)
+    const rawImage = raw?.images?.[0];
     const image = isProtected ? undefined : rawImage;
 
     const metadata = {
