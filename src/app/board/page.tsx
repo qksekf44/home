@@ -102,11 +102,7 @@ function BoardInner() {
 
   const postBadge = (p: Post) => (
     <span style={boardBadgeStyle(badgeFor(boardSet, p, board.cats))}>
-      {p.notice
-        ? boardSet.system[0].label
-        : p.secret
-          ? boardSet.system[1].label
-          : p.category}
+      {p.notice ? boardSet.system[0].label : p.secret ? "개인" : p.category}
     </span>
   );
 

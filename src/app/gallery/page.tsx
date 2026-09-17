@@ -146,31 +146,39 @@ function BackupPageInner() {
         {paged.map((p, si) => {
           const i = start + si; // 정렬은 전체 기준 위치로
           const folded = p.fold && !unveiled[p.id];
+          const isSecret = p?.password !== undefined;
+
           return (
             <div
               key={p.id}
               className="panel g-item"
               {...sort(i)}
               onClick={() => {
-                if (!folded && !editOn) router.push(`/gallery/${p.id}`);
+                // isSecret이거나 접히지 않은(!folded) 경우 이동
+                if ((isSecret || !folded) && !editOn) {
+                  router.push(`/gallery/${p.id}`);
+                }
               }}
             >
-              <div className={`thumb ${folded ? "veil" : ""}`}>
-                <div style={{ position: "absolute", inset: 0 }}>
-                  <CroppedBlobImg
-                    fileRef={p.images[0]}
-                    crop={p.thumbCrop}
-                    ph={p.phList[0] ?? "cool"}
-                  />
-                </div>
-                {/* {!folded && (
-                  <span
-                    className="typ"
-                    style={boardBadgeStyle(typeBadge(p.type))}
-                  >
-                    {typeBadge(p.type)?.label}
-                  </span>
-                )} */}
+              <div className={`thumb ${folded || isSecret ? "veil" : ""}`}>
+                {!isSecret && (
+                  <div style={{ position: "absolute", inset: 0 }}>
+                    <CroppedBlobImg
+                      fileRef={p.images[0]}
+                      crop={p.thumbCrop}
+                      ph={p.phList[0] ?? "cool"}
+                    />
+                  </div>
+                )}
+
+                {isSecret && (
+                  <div className="cover">
+                    <div>
+                      <b>비밀글</b>
+                    </div>
+                  </div>
+                )}
+
                 {folded && (
                   <div
                     className="cover"
@@ -191,15 +199,6 @@ function BackupPageInner() {
                   </div>
                 )}
               </div>
-              {/*
-                <div className="info">
-                  <b>{p.title}</b>
-                  <small>
-                    {meta(p)}
-                    {(p.tags ?? []).map(t => <i key={t} className="tag-in">#{t}</i>)}
-                  </small>
-                </div>
-                */}
             </div>
           );
         })}
@@ -225,7 +224,9 @@ function BackupPageInner() {
               onClick={() => router.push(`/gallery/${p.id}`)}
             >
               <div className={`th`} style={{ position: "relative" }}>
-                {p?.fold && <div className="blur-photo"></div>}
+                {(p?.fold || p?.password !== undefined) && (
+                  <div className="blur-photo"></div>
+                )}
                 <CroppedBlobImg
                   fileRef={p.images[0]}
                   crop={p.thumbCrop}

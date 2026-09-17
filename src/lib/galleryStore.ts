@@ -42,6 +42,7 @@ export interface BackupPost {
   visibility: Visibility;
   fold: { type: FoldType; label?: string } | null;
   tags?: string[];
+  password?: string;
 }
 
 export const BACKUP_SEED: BackupPost[] = [];

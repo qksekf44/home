@@ -1,6 +1,6 @@
 "use client";
 // 그림백업 상세 (4.11) — 로그형: 세로 스크롤 뷰어 / 단일형: 큰 이미지 + 썸네일 스트립 + 좌우 넘김
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useHrefBlock } from "@/components/shell/MenuGuard";
 import { sectionHref, MAIN_SEC, useSectionTitle } from "@/lib/sectionStore";
@@ -14,6 +14,7 @@ import { PageTitle } from "@/components/ui/PageText";
 import { Lightbox } from "@/components/ui/Lightbox";
 import { useBoardSettings, boardBadgeStyle } from "@/lib/boardStore";
 import LinkIcon from "@/components/ui/LinkIcon";
+import { KInput } from "@/components/ui/Kit"; // KInput 추가
 
 export default function BackupDetailPage({ id }: { id: string }) {
   const router = useRouter();
@@ -27,15 +28,33 @@ export default function BackupDetailPage({ id }: { id: string }) {
   const [lbOpen, setLbOpen] = useState(false); // 단일형 — 클릭 확대 보기
   const { st: boardSet } = useBoardSettings(); // 유형 뱃지 색 (환경설정 > 게시판 관리)
 
+  // 비밀번호 보호 관련 상태 추가
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+
   const p = posts.find((x) => x.id === id);
+
   /* 이 글이 속한 곳이 비공개면 주소로 들어와도 열리지 않게 (v2.0 사용자 요청).
      글 주소에는 섹션이 없어 MenuGuard가 못 막는다 — 글을 읽어 소속을 알아낸 여기서 판정한다.
      **다른 early return보다 먼저 불러야 한다**(훅이므로 렌더마다 개수가 같아야 한다) */
   const blocked = useHrefBlock(
     p && sectionHref("gallery", p.secId ?? MAIN_SEC),
   );
+
+  // 비밀번호 보호 글 — 탭/브라우저를 닫기 전까지는 다시 묻지 않는다 (세션 저장)
+  useEffect(() => {
+    if (!p?.password) return;
+    try {
+      if (sessionStorage.getItem(`gallery.pw.${p.id}`) === "1") {
+        setUnlocked(true);
+      }
+    } catch {}
+  }, [p?.id, p?.password]);
+
   // 큰 글씨 — 추가 섹션이면 그 이름, 눌렀을 때도 그 목록으로 (v2.0 사용자 제보)
   const tt = useSectionTitle("gallery", p?.secId, "GALLERY");
+
   if (blocked) return blocked;
   if (!loaded) return <section className="page" />;
   if (
@@ -53,6 +72,66 @@ export default function BackupDetailPage({ id }: { id: string }) {
     );
   }
 
+  const isAuthor = !!p.authorId && p.authorId === user?.id;
+  const canManage = isAdmin || isAuthor;
+
+  // 비밀번호 보호 — 작성자/관리자는 통과, 그 외엔 비밀번호를 맞춰야 함
+  const tryUnlock = () => {
+    if (pwInput === (p.password ?? "")) {
+      try {
+        sessionStorage.setItem(`gallery.pw.${p.id}`, "1");
+      } catch {}
+      setUnlocked(true);
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  };
+
+  const needsPassword = p.password && !isAdmin && !isAuthor && !unlocked;
+  if (needsPassword) {
+    return (
+      <section className="page">
+        <div className="page-head">
+          <PageTitle href={tt.href}>{tt.title}</PageTitle>
+          <p>🔑 비밀번호로 보호된 글입니다</p>
+        </div>
+        <div
+          className="panel"
+          style={{ padding: 24, maxWidth: 360, margin: "0 auto" }}
+        >
+          <div className="form-row">
+            <KInput
+              type="password"
+              placeholder="비밀번호 입력"
+              value={pwInput}
+              onChange={(e) => {
+                setPwInput(e.target.value);
+                setPwError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") tryUnlock();
+              }}
+              style={{ width: "100%" }}
+            />
+          </div>
+          {pwError && (
+            <p style={{ color: "var(--accent)", fontSize: 12, marginTop: 6 }}>
+              비밀번호가 일치하지 않습니다
+            </p>
+          )}
+          <button
+            className="btn btn-accent"
+            style={{ marginTop: 12 }}
+            onClick={tryUnlock}
+          >
+            확인
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -64,13 +143,8 @@ export default function BackupDetailPage({ id }: { id: string }) {
   const imgs: { url?: string; ph?: string }[] = p.images.length
     ? p.images.map((u) => ({ url: u }))
     : p.phList.map((c) => ({ ph: c }));
-  /* 글쓴이 확인 (v2.0 발견) — **둘 다 없을 때 같다고 보면 안 된다.**
-     예전 글이나 손님이 쓴 글은 authorId가 없는데, 비로그인 방문자도 user?.id가 없어
-     `undefined === undefined`로 통과했다 — 아무나 남의 글을 고치고 지울 수 있었다 */
-  const canManage = isAdmin || (!!p.authorId && p.authorId === user?.id);
 
   // 파일 id/URL 모두 지원 — blobStore에서 로드 (새로고침에도 유지)
-  // natural: 고정 프레임 안에서 확대 없이 원본 크기 그대로 가운데 (단일형 — 프레임보다 크면 축소만)
   const Img = ({
     im,
     ratio,
@@ -82,8 +156,6 @@ export default function BackupDetailPage({ id }: { id: string }) {
   }) => {
     const u = useBlobUrl(im.url);
     if (u) {
-      // eslint-disable-next-line @next/next/no-img-element
-      // 원본보다 크게 늘리지 않는다 — 폭이 모자랄 때만 줄이고, 작은 그림은 작은 그대로 (v2.0 사용자 확정)
       return (
         <img
           src={u}
@@ -121,8 +193,7 @@ export default function BackupDetailPage({ id }: { id: string }) {
         <PageTitle href={tt.href}>{tt.title}</PageTitle>
         <p>
           {p.author} · {fmtDate(p.date)}
-          {p.madeDate ? ` · 제작 ${p.madeDate}` : ""}
-          {/* 태그 (v2.0 사용자 요청) — 목록과 같은 표기 */}
+          {p.madeDate ? `` : ""}
           {(p.tags ?? []).map((t) => (
             <i key={t} className="tag-in">
               #{t}
@@ -153,12 +224,10 @@ export default function BackupDetailPage({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* 본문만 폭 제한 — 헤더는 풀폭 위치 유지 */}
       <div
         className="panel"
         style={{ padding: 20, maxWidth: 960, margin: "0 auto" }}
       >
-        {/* 제목·뱃지 세로 중앙 정렬 + 아래 여백 확보 */}
         <h2
           style={{
             fontSize: 18,
@@ -176,6 +245,7 @@ export default function BackupDetailPage({ id }: { id: string }) {
               alignItems: "center",
             }}
           >
+            {p?.password !== undefined && "🔑 "}
             {p.title}
             <span
               style={boardBadgeStyle(
@@ -183,7 +253,6 @@ export default function BackupDetailPage({ id }: { id: string }) {
               )}
             >
               {p.category}
-              {/* {boardSet.gallery.find((b) => b.id === p.type)?.label} */}
             </span>
           </div>
           <LinkIcon onClick={handleCopy} />
@@ -201,14 +270,12 @@ export default function BackupDetailPage({ id }: { id: string }) {
         )}
 
         {p.type === "log" ? (
-          /* 로그형 — 웹툰식 세로 스크롤 · 이미지 사이 틈 없이 이어 붙임 (만화 연결) */
           <div style={{ borderRadius: 10, overflow: "hidden" }}>
             {imgs.map((im, i) => (
               <Img key={i} im={im} />
             ))}
           </div>
         ) : p.type === "vlist" ? (
-          /* 단일(세로정렬) (v1.9) — 로그와 달리 이미지 사이 갭을 두고 세로로 나열, 클릭 확대 */
           <div style={{ display: "grid", gap: 14 }}>
             {imgs.map((im, i) => (
               <div
@@ -230,11 +297,8 @@ export default function BackupDetailPage({ id }: { id: string }) {
             ))}
           </div>
         ) : (
-          /* 단일형 — 큰 이미지 + 좌우 넘김 + 썸네일 스트립 */
           <>
             <div className="single-viewer">
-              {/* 고정 16:10 프레임 안 가운데 배치 — 실제 이미지일 때만 클릭 확대.
-                  grid는 암시적 row가 콘텐츠 높이로 늘어나 max-height:100%가 무력화됨(세로 긴 그림 잘림) → flex (v1.9) */}
               <div
                 style={{
                   position: "absolute",
@@ -288,7 +352,6 @@ export default function BackupDetailPage({ id }: { id: string }) {
         )}
       </div>
 
-      {/* 단일형·단일(세로) 확대 보기 — 뷰어와 같은 순번에서 시작, ‹ ›로 이어 넘김 */}
       {lbOpen &&
         (p.type === "single" || p.type === "vlist") &&
         p.images.length > 0 && (
