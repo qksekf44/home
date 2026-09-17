@@ -20,7 +20,18 @@ export async function generateMetadata({
       return { title: "GALLERY" };
     }
 
-    const raw = snap.data();
+    const raw = snap.data()?.data;
+
+    // 조건값 개별 추출 및 출력
+    const foldType = raw?.fold?.type;
+    const typePassword = raw?.password;
+
+    // 조건 판별 결과
+    const isSpoiler = foldType === "spoiler";
+    const isAdult = foldType === "adult";
+    const hasPassword = typePassword !== undefined;
+
+    const isProtected = isSpoiler || isAdult || hasPassword;
 
     const post = raw?.data as
       | {
@@ -30,18 +41,12 @@ export async function generateMetadata({
         }
       | undefined;
 
-    // spoiler, adult, 또는 비밀번호 조건 확인
-    const foldType = raw?.fold?.type;
-    const isPasswordProtected = Boolean(raw?.type?.password);
-    const isProtected =
-      foldType === "spoiler" || foldType === "adult" || isPasswordProtected;
-
     const title = post?.title?.trim() || "GALLERY";
     const description = post?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
 
-    // 조건에 해당하는 경우 OG 이미지를 숨김 (빈 배열 처리)
-    const image = isProtected ? undefined : post?.images?.[0];
-    const imageList = image ? [image] : [];
+    // 보호 대상인 경우 이미지를 undefined 처리
+    const rawImage = post?.images?.[0];
+    const image = isProtected ? undefined : rawImage;
 
     const metadata = {
       title,
@@ -50,13 +55,13 @@ export async function generateMetadata({
         title,
         description,
         type: "article" as const,
-        images: imageList,
+        images: image ? [image] : [],
       },
       twitter: {
         card: image ? "summary_large_image" : "summary",
         title,
         description,
-        images: imageList,
+        images: image ? [image] : [],
       },
     };
 
