@@ -30,9 +30,18 @@ export async function generateMetadata({
         }
       | undefined;
 
+    // spoiler, adult, 또는 비밀번호 조건 확인
+    const foldType = raw?.fold?.type;
+    const isPasswordProtected = Boolean(raw?.type?.password);
+    const isProtected =
+      foldType === "spoiler" || foldType === "adult" || isPasswordProtected;
+
     const title = post?.title?.trim() || "GALLERY";
     const description = post?.desc?.replace(/<[^>]+>/g, "").trim() || "GALLERY";
-    const image = post?.images?.[0];
+
+    // 조건에 해당하는 경우 OG 이미지를 숨김 (빈 배열 처리)
+    const image = isProtected ? undefined : post?.images?.[0];
+    const imageList = image ? [image] : [];
 
     const metadata = {
       title,
@@ -41,13 +50,13 @@ export async function generateMetadata({
         title,
         description,
         type: "article" as const,
-        images: image ? [image] : [],
+        images: imageList,
       },
       twitter: {
         card: image ? "summary_large_image" : "summary",
         title,
         description,
-        images: image ? [image] : [],
+        images: imageList,
       },
     };
 

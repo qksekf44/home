@@ -144,7 +144,7 @@ function BackupPageInner() {
         }}
       >
         {paged.map((p, si) => {
-          const i = start + si; // 정렬은 전체 기준 위치로
+          const i = start + si;
           const folded = p.fold && !unveiled[p.id];
           const isSecret = p?.password !== undefined;
 
@@ -154,22 +154,19 @@ function BackupPageInner() {
               className="panel g-item"
               {...sort(i)}
               onClick={() => {
-                // isSecret이거나 접히지 않은(!folded) 경우 이동
-                if ((isSecret || !folded) && !editOn) {
+                if (!editOn) {
                   router.push(`/gallery/${p.id}`);
                 }
               }}
             >
               <div className={`thumb ${folded || isSecret ? "veil" : ""}`}>
-                {!isSecret && (
-                  <div style={{ position: "absolute", inset: 0 }}>
-                    <CroppedBlobImg
-                      fileRef={p.images[0]}
-                      crop={p.thumbCrop}
-                      ph={p.phList[0] ?? "cool"}
-                    />
-                  </div>
-                )}
+                <div style={{ position: "absolute", inset: 0 }}>
+                  <CroppedBlobImg
+                    fileRef={p.images[0]}
+                    crop={p.thumbCrop}
+                    ph={p.phList[0] ?? "cool"}
+                  />
+                </div>
 
                 {isSecret && (
                   <div className="cover">
@@ -180,23 +177,19 @@ function BackupPageInner() {
                 )}
 
                 {folded && (
-                  <div
-                    className="cover"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setUnveiled((u) => ({ ...u, [p.id]: true }));
-                    }}
-                  >
-                    <div>
-                      <b>
-                        {p.fold!.type === "custom"
-                          ? p.fold!.label || "접힘"
-                          : FOLD_LABEL[p.fold!.type]}
-                      </b>
-                      <br />
-                      <span>클릭하여 표시</span>
+                  <>
+                    <div className="cover">
+                      <div>
+                        <b>
+                          <b>
+                            {p.fold!.type === "custom"
+                              ? p.fold!.label || "접힘"
+                              : FOLD_LABEL[p.fold!.type]}
+                          </b>
+                        </b>
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>

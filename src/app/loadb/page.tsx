@@ -117,7 +117,7 @@ function RoadBlock({
     <div className="panel roadview-item">
       {/* 그림별 상단 번호 영역 (v1.9 사용자 확정) — 숫자만 표시 (제목·작성자 없이) */}
       <div className="rv-head">
-        <b>No.{String(item.no ?? 0).padStart(3, "0")}</b>
+        <b>&nbsp;</b>
       </div>
       {/* 투명 PNG도 카드색 위에 자연스럽게 — 어두운 하드코딩 제거 (v1.9 사용자 피드백) */}
       <div
