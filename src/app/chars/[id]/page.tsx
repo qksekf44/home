@@ -1,5 +1,3 @@
-// app/chars/[id]/page.tsx
-
 import type { Metadata } from "next";
 import CharDetailPage from "./CharDetailPage";
 import { adminDb } from "@/lib/firebaseAdmin";
@@ -15,19 +13,14 @@ export async function generateMetadata({
 
   try {
     const db = adminDb();
-    console.log("📌 [1] Character ID:", id);
-
     const snap = await db.collection("characters").doc(id).get();
-    console.log("📌 [2] Snap exists:", snap.exists);
 
     if (!snap.exists) {
+      console.error("❌ [META] Document not found:", id);
       return { title: "CHARACTER" };
     }
 
     const raw = snap.data();
-    console.log("📌 [3] Raw data:", raw);
-
-    // ✅ raw.data 안에 실제 데이터가 있음
     const char = raw?.data as
       | {
           name?: string;
@@ -39,27 +32,20 @@ export async function generateMetadata({
         }
       | undefined;
 
-    console.log("📌 [3-1] Character data:", char);
-
     const title = char?.name || "CHARACTER";
     const description =
       char?.sub ||
       char?.basicHtml?.replace(/<[^>]*>/g, "").trim() ||
       "CHARACTER";
-
-    // ✅ arts[0]이 이미 Firebase URL이니까 그냥 쓰면 됨
     const image = char?.arts?.[0] || char?.artId || char?.thumbId;
 
-    console.log("📌 [4] Image URL:", image);
-    console.log("📌 [4-1] Is valid URL:", image?.startsWith("http"));
-
-    return {
+    const result = {
       title,
       description,
       openGraph: {
         title,
         description,
-        type: "article",
+        type: "article" as const,
         images: image ? [image] : [],
       },
       twitter: {
@@ -69,8 +55,16 @@ export async function generateMetadata({
         images: image ? [image] : [],
       },
     };
+
+    console.log("✅ [META] Generated:", {
+      title,
+      hasImage: !!image,
+      imageUrl: image ? `${image.substring(0, 50)}...` : "none",
+    });
+
+    return result;
   } catch (error) {
-    console.error("❌ [ERROR]", error);
+    console.error("❌ [META] Error:", error);
     return { title: "CHARACTER" };
   }
 }
