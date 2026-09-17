@@ -1,6 +1,6 @@
 "use client";
 // 게시글 상세 (4.2) — 본문 렌더(격리 새니타이즈) · 접기 · 댓글+대댓글
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useHrefBlock } from "@/components/shell/MenuGuard";
 import { extraBoardHref } from "@/lib/menuStore";
@@ -51,6 +51,9 @@ export default function BoardDetailPage() {
   );
   const { boards } = useBoards(); // 소속 게시판 (5.2 다중 게시판)
   const [open, setOpen] = useState(false); // 접기 해제
+  const [pwInput, setPwInput] = useState(""); // 추가
+  const [pwError, setPwError] = useState(false); // 추가
+  const [unlocked, setUnlocked] = useState(false); // 추가 — 이번 세션에 비번 확인됨
   const [cmt, setCmt] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [delAsk, setDelAsk] = useState(false);
@@ -70,6 +73,15 @@ export default function BoardDetailPage() {
     [post, loaded],
   );
 
+  // 비밀번호 보호 글 — 탭/브라우저를 닫기 전까지는 다시 묻지 않는다 (세션 저장)
+  useEffect(() => {
+    if (!post?.password) return;
+    try {
+      if (sessionStorage.getItem(`board.pw.${post.id}`) === "1")
+        setUnlocked(true);
+    } catch {}
+  }, [post?.id, post?.password]);
+
   // 막힌 곳이면 여기서 되돌아간다 — 훅을 모두 부른 뒤여야 렌더마다 개수가 같다
   if (blocked) return blocked;
   if (!loaded) return <section className="page" />;
@@ -83,8 +95,13 @@ export default function BoardDetailPage() {
       </section>
     );
   }
+
   /* 글쓴이인지 한 곳에서 정한다 (v2.0 발견) — 예전 글이나 손님이 쓴 글은 authorId가 없고
      비로그인 방문자도 user?.id가 없어, 서로 「같다」고 판정돼 **비밀글이 그대로 열렸다.** */
+  const board =
+    boards.find((b) => b.id === (post.boardId ?? MAIN_BOARD_ID)) ?? boards[0];
+  const boardTitle = board.id === MAIN_BOARD_ID ? "BOARD" : board.name;
+
   const isAuthor = !!post.authorId && post.authorId === user?.id;
   if (post.secret && !isAdmin && !isAuthor) {
     return (
@@ -97,9 +114,59 @@ export default function BoardDetailPage() {
     );
   }
 
-  const board =
-    boards.find((b) => b.id === (post.boardId ?? MAIN_BOARD_ID)) ?? boards[0];
-  const boardTitle = board.id === MAIN_BOARD_ID ? "BOARD" : board.name;
+  // 비밀번호 보호 — 작성자/관리자는 통과, 그 외엔 비밀번호를 맞춰야 함
+  const tryUnlock = () => {
+    if (pwInput === (post.secretPw ?? "")) {
+      try {
+        sessionStorage.setItem(`board.pw.${post.id}`, "1");
+      } catch {}
+      setUnlocked(true);
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  };
+  const needsPassword = post.password && !isAdmin && !isAuthor && !unlocked;
+  if (needsPassword) {
+    return (
+      <section className="page">
+        <div className="page-head">
+          <PageTitle href={boardHref(board.id)}>{boardTitle}</PageTitle>
+          <p>🔑 비밀번호로 보호된 글입니다</p>
+        </div>
+        <div className="panel" style={{ padding: 24, maxWidth: 360 }}>
+          <div className="form-row">
+            <KInput
+              type="password"
+              placeholder="비밀번호 입력"
+              value={pwInput}
+              onChange={(e) => {
+                setPwInput(e.target.value);
+                setPwError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") tryUnlock();
+              }}
+              style={{ width: "100%" }}
+            />
+          </div>
+          {pwError && (
+            <p style={{ color: "var(--accent)", fontSize: 12, marginTop: 6 }}>
+              비밀번호가 일치하지 않습니다
+            </p>
+          )}
+          <button
+            className="btn btn-accent"
+            style={{ marginTop: 12 }}
+            onClick={tryUnlock}
+          >
+            확인
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   // 댓글 권한 (5.2) — 방문자 허용 시 게스트 작성(닉네임+비밀번호, 방명록 4.7 규칙)
   const allow = (p: BoardPerm) =>
     p === "admin" ? isAdmin : p === "member" ? !!user : true;
@@ -278,6 +345,7 @@ export default function BoardDetailPage() {
           }}
         >
           {post.secret && "🔒 "}
+          {post.password && "🔑 "}
           {post.title}
           <LinkIcon onClick={handleCopy} />
         </h2>

@@ -78,8 +78,8 @@ function BoardInner() {
         (p) =>
           p.title.toLowerCase().includes(k) ||
           p.author.toLowerCase().includes(k) ||
-          (p.tags ?? []).some((t) => t.toLowerCase().includes(k)) || // 태그 검색 (v2.0 사용자 요청)
-          (!p.secret && p.body.toLowerCase().includes(k)),
+          (p.tags ?? []).some((t) => t.toLowerCase().includes(k)) ||
+          (!p.secret && !p.password && p.body.toLowerCase().includes(k)), // 수정
       );
     }
     // 공지 상단 고정 + 최신순
@@ -95,6 +95,8 @@ function BoardInner() {
      둘 다 undefined라 `undefined === undefined`가 참이었기 때문 */
   const canRead = (p: Post) =>
     !p.secret || isAdmin || (!!p.authorId && p.authorId === user?.id);
+
+  const isPwProtected = (p: Post) => !!p.password;
 
   if (!boardsLoaded) return <section className="page" />;
 
