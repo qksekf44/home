@@ -201,10 +201,11 @@ function BoardInner() {
                     {canRead(p) ? (
                       <>
                         {p.secret && "🔒 "}
+                        {p.password && "🔑 "}
                         {p.title}
                       </>
                     ) : (
-                      "🔒 비밀글입니다"
+                      "🔒 비공개글입니다"
                     )}
                     {canRead(p) && cmtCount(p) > 0 && (
                       <span className="cmt">{cmtCount(p)}</span>
@@ -253,6 +254,7 @@ function BoardInner() {
                   {canRead(p) ? (
                     <b>
                       {p.secret && "🔒 "}
+                      {p.password && "🔑 "}
                       {p.title}
                       {cmtCount(p) > 0 && (
                         <span className="cmt">{cmtCount(p)}</span>
@@ -277,7 +279,7 @@ function BoardInner() {
                         })()}
                     </b>
                   ) : (
-                    <b style={{ color: "var(--faint)" }}>🔒 비밀글입니다</b>
+                    <b style={{ color: "var(--faint)" }}>🔒 비공개글입니다.</b>
                   )}
                   {canRead(p) && (p.tags ?? []).length > 0 && (
                     <span className="tags">
