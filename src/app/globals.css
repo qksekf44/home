@@ -1571,6 +1571,8 @@ a {
   backdrop-filter: blur(11px);
   color: #fff;
   text-align: center;
+  top: 0;
+  left: 0;
 }
 .veil .cover b {
   font-size: calc(12px * var(--fs, 1));
