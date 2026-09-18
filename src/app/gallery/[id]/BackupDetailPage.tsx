@@ -1,7 +1,7 @@
 "use client";
 // 그림백업 상세 (4.11) — 로그형: 세로 스크롤 뷰어 / 단일형: 큰 이미지 + 썸네일 스트립 + 좌우 넘김
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useHrefBlock } from "@/components/shell/MenuGuard";
 import { sectionHref, MAIN_SEC, useSectionTitle } from "@/lib/sectionStore";
 import { useAuth } from "@/lib/auth";
@@ -18,6 +18,8 @@ import { KInput } from "@/components/ui/Kit"; // KInput 추가
 
 export default function BackupDetailPage({ id }: { id: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const parentPath = pathname.substring(0, pathname.lastIndexOf("/"));
   const { user, isAdmin } = useAuth();
   const [posts, setPosts, loaded] = useLocalList<BackupPost>(
     "ohome.backup.v1",
@@ -204,7 +206,7 @@ export default function BackupDetailPage({ id }: { id: string }) {
         <div className="head-actions">
           <button
             className="btn btn-dark"
-            onClick={() => router.push(`/gallery`)}
+            onClick={() => router.push(tt?.href)}
           >
             LIST
           </button>

@@ -147,6 +147,15 @@ function BackupPageInner() {
           const i = start + si;
           const folded = p.fold && !unveiled[p.id];
           const isSecret = p?.password !== undefined;
+          const isVeiled = folded || isSecret;
+
+          const veilLabel = folded
+            ? p.fold!.type === "custom"
+              ? p.fold!.label || "접힘"
+              : FOLD_LABEL[p.fold!.type]
+            : isSecret
+              ? "비밀글"
+              : "";
 
           return (
             <div
@@ -159,7 +168,7 @@ function BackupPageInner() {
                 }
               }}
             >
-              <div className={`thumb ${folded || isSecret ? "veil" : ""}`}>
+              <div className={`thumb ${isVeiled ? "veil" : ""}`}>
                 <div style={{ position: "absolute", inset: 0 }}>
                   <CroppedBlobImg
                     fileRef={p.images[0]}
@@ -168,28 +177,12 @@ function BackupPageInner() {
                   />
                 </div>
 
-                {isSecret && (
+                {isVeiled && (
                   <div className="cover">
                     <div>
-                      <b>비밀글</b>
+                      <b>{veilLabel}</b>
                     </div>
                   </div>
-                )}
-
-                {folded && (
-                  <>
-                    <div className="cover">
-                      <div>
-                        <b>
-                          <b>
-                            {p.fold!.type === "custom"
-                              ? p.fold!.label || "접힘"
-                              : FOLD_LABEL[p.fold!.type]}
-                          </b>
-                        </b>
-                      </div>
-                    </div>
-                  </>
                 )}
               </div>
             </div>
