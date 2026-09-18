@@ -6888,6 +6888,11 @@ body.edit-on .main-grid.gridlines .wgt {
 .html-body a img {
   cursor: inherit;
 }
+
+.html-body a {
+  color: var(--accent);
+  text-decoration: underline;
+}
 .post-body a {
   color: var(--accent);
   text-decoration: underline;
