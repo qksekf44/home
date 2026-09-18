@@ -1568,7 +1568,7 @@ a {
   cursor: var(--cur-pointer, pointer);
   z-index: 5;
   background: rgba(28, 31, 36, 0.55);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(11px);
   color: #fff;
   text-align: center;
 }
@@ -6246,7 +6246,8 @@ body.edit-on .main-grid.gridlines .wgt {
   overflow: hidden;
   padding: 0;
   cursor: var(--cur-pointer, pointer);
-  transition: 0.2s;
+  transition: 0.4s;
+  /* 호버 문제 */
 }
 .g-item:hover {
   transform: translateY(-4px);

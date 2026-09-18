@@ -23,8 +23,14 @@ import {
 import { useMainStore } from "@/lib/mainStore";
 import { useCardSort, mergeOrder } from "@/lib/cardSort";
 import { useMenuSettings, canGalleryWrite } from "@/lib/menuStore";
+import {
+  catLabel,
+  threadBadgeStyle,
+  threadCats,
+  useThreadSettings,
+} from "@/lib/threadStore";
 
-const FOLD_LABEL = { spoiler: "스포일러", adult: "수위 주의" };
+const FOLD_LABEL = { spoiler: "스포", adult: "수위" };
 
 function BackupPageInner() {
   const router = useRouter();
@@ -39,6 +45,10 @@ function BackupPageInner() {
   const posts = filterSection(postsAll, sec.id);
   // 저장은 이 섹션 자리만 교체 — 걸러진 목록을 그대로 넘겨도 다른 섹션이 지워지지 않는다
   const setPosts = sectionSetter(postsAll, sec.id, setPostsAll);
+  const [settings, , setLoaded] = useThreadSettings();
+
+  const cats = threadCats(settings, sec.id);
+
   // 기본 보기 — 환경설정 > 메뉴 관리의 갤러리 항목에서 지정 (5.2)
   const [menuSet, , menuLoaded] = useMenuSettings();
   const [view, setView] = useState<"gal" | "list">("gal");
@@ -149,19 +159,15 @@ function BackupPageInner() {
           const isSecret = p?.password !== undefined;
           const isVeiled = folded || isSecret;
 
-          const veilLabel = folded
-            ? p.fold!.type === "custom"
-              ? p.fold!.label || "접힘"
-              : FOLD_LABEL[p.fold!.type]
-            : isSecret
-              ? "비밀글"
-              : "";
-
+          console.log(p);
           return (
             <div
               key={p.id}
               className="panel g-item"
               {...sort(i)}
+              style={{
+                position: "relative",
+              }}
               onClick={() => {
                 if (!editOn) {
                   router.push(`/gallery/${p.id}`);
@@ -169,19 +175,133 @@ function BackupPageInner() {
               }}
             >
               <div className={`thumb ${isVeiled ? "veil" : ""}`}>
-                <div style={{ position: "absolute", inset: 0 }}>
+                <div
+                  style={{ position: "absolute", inset: 0, top: 0, left: 0 }}
+                >
                   <CroppedBlobImg
                     fileRef={p.images[0]}
                     crop={p.thumbCrop}
                     ph={p.phList[0] ?? "cool"}
                   />
                 </div>
+                {isSecret && (
+                  <span
+                    style={{
+                      zIndex: 20,
+                      left: 18,
+                      width: "fit-content",
+                      display: "flex",
+                      gap: 4,
+                      padding: "6px 12px 6px 12px",
+                    }}
+                    className="cat-badge"
+                  >
+                    {isSecret && (
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="3"
+                          y="11"
+                          width="18"
+                          height="11"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    )}
+                  </span>
+                )}
+                {p?.fold?.type && (
+                  <span
+                    style={{
+                      zIndex: 20,
+                      left: 18,
+                      width: "fit-content",
+                      display: "flex",
+                      gap: 4,
+                      padding: "6px 12px 6px 12px",
+                    }}
+                    className="cat-badge"
+                  >
+                    {isSecret && (
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="3"
+                          y="11"
+                          width="18"
+                          height="11"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    )}
+
+                    {p.fold.type in FOLD_LABEL
+                      ? FOLD_LABEL[p.fold.type as keyof typeof FOLD_LABEL]
+                      : p.fold.label?.substring(0, 2)}
+                  </span>
+                )}
 
                 {isVeiled && (
                   <div className="cover">
-                    <div>
-                      <b>{veilLabel}</b>
-                    </div>
+                    {/* {isSecret && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: "10px",
+                          right: "10px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "32px",
+                          height: "32px",
+                          borderRadius: "50%",
+                          backgroundColor: "rgba(0, 0, 0, 0.5)",
+                          backdropFilter: "blur(4px)",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect
+                            x="3"
+                            y="11"
+                            width="18"
+                            height="11"
+                            rx="2"
+                            ry="2"
+                          />
+                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                      </div>
+                    )} */}
                   </div>
                 )}
               </div>
