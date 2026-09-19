@@ -2068,6 +2068,7 @@ a {
     display: flex !important;
     flex-direction: column;
     gap: 16px;
+    margin-bottom: 10px;
   }
   .rp-layout {
     display: flex;
