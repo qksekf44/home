@@ -1,8 +1,13 @@
 /* re-editor.css — RichEditor 전용 스타일
    다크/라이트: prefers-color-scheme을 기본으로 따르고,
-   앱이 <html data-theme="light|dark">를 지정하면 그쪽을 우선한다. */
+   <html data-theme="light|dark"> 또는 .re-wrap[data-theme]가 지정되면 그쪽을 우선한다.
 
-.re-wrap {
+   팝오버(.re-float)는 document.body(또는 <dialog>)로 포털되어 .re-wrap 밖에 뜬다.
+   그래서 테마 변수를 .re-wrap 과 .re-float 양쪽에 똑같이 정의한다. */
+
+/* ---------- 테마 변수 ---------- */
+.re-wrap,
+.re-float {
   --re-bg: #ffffff;
   --re-fg: #1a1a1a;
   --re-muted: #6b7280;
@@ -15,17 +20,11 @@
   --re-quote-border: #d4d4d4;
   --re-code-bg: rgba(0, 0, 0, 0.06);
   --re-placeholder: #9ca3af;
-
-  position: relative;
-  border: 1px solid var(--re-border);
-  border-radius: 10px;
-  background: var(--re-bg);
-  color: var(--re-fg);
-  overflow: visible;
 }
 
 @media (prefers-color-scheme: dark) {
-  .re-wrap:not([data-theme="light"]) {
+  :root:not([data-theme="light"]) .re-wrap:not([data-theme="light"]),
+  :root:not([data-theme="light"]) .re-float:not([data-theme="light"]) {
     --re-bg: #17181c;
     --re-fg: #e8e8ea;
     --re-muted: #9a9aa2;
@@ -41,7 +40,10 @@
   }
 }
 
-.re-wrap[data-theme="dark"] {
+:root[data-theme="dark"] .re-wrap:not([data-theme="light"]),
+:root[data-theme="dark"] .re-float:not([data-theme="light"]),
+.re-wrap[data-theme="dark"],
+.re-float[data-theme="dark"] {
   --re-bg: #17181c;
   --re-fg: #e8e8ea;
   --re-muted: #9a9aa2;
@@ -54,6 +56,16 @@
   --re-quote-border: #3a3b42;
   --re-code-bg: rgba(255, 255, 255, 0.08);
   --re-placeholder: #6f7078;
+}
+
+/* ---------- 래퍼 ---------- */
+.re-wrap {
+  position: relative;
+  border: 1px solid var(--re-border);
+  border-radius: 10px;
+  background: var(--re-bg);
+  color: var(--re-fg);
+  overflow: visible;
 }
 
 /* ---------- 툴바 ---------- */
@@ -126,17 +138,27 @@
   opacity: 0.7;
 }
 
+/* 포털로 뜨는 팝오버 — 위치(top/left/position)는 FloatingMenu가 inline style로 계산한다 */
+.re-float {
+  z-index: 2147483000;
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* 메뉴 모양 (위치 관련 속성은 없음) */
 .re-dd-menu {
-  position: absolute;
-  z-index: 99999;
-  top: calc(100% + 4px);
-  left: 0;
   min-width: 160px;
   padding: 4px;
   background: var(--re-bg);
+  color: var(--re-fg);
   border: 1px solid var(--re-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
 
 .re-dd-item {
@@ -165,12 +187,17 @@
   font-weight: 700;
 }
 
-/* ---------- 링크 팝오버 ---------- */
+/* ---------- 링크 / 글자 크기 팝오버 ---------- */
 .re-link-menu {
   min-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px;
+}
+
+.re-size-menu {
+  min-width: 220px;
   padding: 10px;
 }
 
@@ -201,7 +228,7 @@
   color: #fff;
   padding: 0 12px;
 }
-.re-link-apply:hover {
+.re-link-apply:hover:not(:disabled) {
   filter: brightness(1.08);
   background: var(--re-accent);
 }
@@ -250,27 +277,6 @@
   box-shadow:
     0 0 0 2px var(--re-bg),
     0 0 0 4px var(--re-accent);
-}
-
-.re-color-custom {
-  background: var(--re-btn-hover);
-  color: var(--re-fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  overflow: hidden;
-}
-
-.re-color-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
-  padding: 0;
 }
 
 .re-color-remove {
@@ -399,7 +405,7 @@
   font-size: 15px;
 }
 
-/* ---------- 반응형 (모바일 핵심 해결 부분) ---------- */
+/* ---------- 반응형 ---------- */
 @media (max-width: 480px) {
   .re-toolbar {
     padding: 4px;
@@ -414,20 +420,11 @@
     padding: 12px;
     font-size: 16px; /* iOS 자동 확대 방지 */
   }
-
-  /* 모바일에서 모든 드롭다운/팝오버를 아래가 아닌 위로(Bottom-Up) 연다 */
-  .re-dd-menu {
-    top: auto;
-    bottom: calc(100% + 4px); /* 버튼 바로 위로 배치 */
-    left: 0;
-    max-width: calc(100vw - 24px);
+  /* 팝오버 안 입력칸도 16px 미만이면 iOS가 포커스할 때 화면을 확대한다 */
+  .re-link-input {
+    font-size: 16px;
   }
 
-  /* 우측에 치우친 버튼의 팝오버(컬러피커, 링크 등)는 우측 기준 정렬하여 화면 이탈 방지 */
-  .re-color-menu,
-  .re-link-menu,
-  .re-size-menu {
-    left: auto;
-    right: 0;
-  }
+  /* 팝오버의 위/아래·좌/우 배치는 FloatingMenu(JS)가 뷰포트 기준으로 계산하므로
+     예전의 "bottom-up" / "right: 0" 모바일 전용 규칙은 제거했다. */
 }

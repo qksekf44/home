@@ -2,6 +2,12 @@
 // 리치 텍스트 에디터 (TipTap) — 프로필 탭 등 HTML 콘텐츠 작성용
 // 자체 스타일 툴바 (7장 — 기본 UI 금지) · 출력은 HTML, 저장 시 새니타이즈는 렌더 쪽에서 (6.3)
 //
+// v2.4 변경점
+// - 모바일에서 팝오버(컬러피커/링크/글자 크기/제목)가 가려지던 문제 수정
+//   · 모든 팝오버를 FloatingMenu로 교체: document.body(또는 <dialog>)로 포털 + position: fixed
+//   · visualViewport 기준으로 좌표 계산 → 아래 공간이 모자라면 위로 뒤집고, 좌우는 화면 안으로 clamp
+//   · 포털로 옮겼으므로 바깥 클릭 판정은 wrapRef + menuRef 둘 다 확인 (pointerdown, Esc 지원)
+//
 // v2.3 변경점
 // - 서식: 밑줄(Underline) 추가
 // - 목록: 체크박스(TaskList/TaskItem) 추가
@@ -14,7 +20,14 @@
 // - 글자 색상: 스와치 팔레트 + 커스텀 피커로 고를 수 있는 자체 팝오버 추가 (TextStyle + Color)
 // - 글자 크기: px 단위 커스텀 지정 추가. 공식 확장이 없어 TextStyle 위에 얹는 FontSize를 직접 구현
 //   (Color 확장과 동일한 패턴 — textStyle 마크에 fontSize 속성을 추가)
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
+import { createPortal } from "react-dom";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -80,6 +93,145 @@ function toDataUrl(f: File): Promise<string> {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* 팝오버 공용 부품                                                    */
+/* ------------------------------------------------------------------ */
+
+/** 포털 + fixed 팝오버 — 조상의 overflow/z-index/스택 컨텍스트와 무관하게 뷰포트 안에 항상 보이도록 배치.
+ *  - 아래 공간이 모자라면 위로 뒤집고, 좌우는 화면 안으로 clamp
+ *  - visualViewport 기준이라 모바일 키보드/주소창 변화에도 대응
+ *  - <dialog>(top layer) 안에서 쓰면 body 포털은 그 뒤로 깔리므로 dialog 안으로 포털 */
+function FloatingMenu({
+  anchorRef,
+  menuRef,
+  className = "",
+  children,
+  ...rest
+}: {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
+  className?: string;
+  children: React.ReactNode;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  const [style, setStyle] = useState<React.CSSProperties>({
+    position: "fixed",
+    top: 0,
+    left: 0,
+    visibility: "hidden", // 크기를 잰 뒤에 보이게 (깜빡임 방지)
+  });
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const a = anchorRef.current;
+      const m = menuRef.current;
+      if (!a || !m) return;
+
+      const vv = window.visualViewport;
+      const vTop = vv?.offsetTop ?? 0;
+      const vLeft = vv?.offsetLeft ?? 0;
+      const vW = vv?.width ?? window.innerWidth;
+      const vH = vv?.height ?? window.innerHeight;
+      const PAD = 8;
+      const GAP = 4;
+
+      const r = a.getBoundingClientRect();
+      const mw = m.offsetWidth;
+      const mh = m.offsetHeight;
+
+      const spaceBelow = vTop + vH - r.bottom - PAD;
+      const spaceAbove = r.top - vTop - PAD;
+      const below = spaceBelow >= mh || spaceBelow >= spaceAbove;
+
+      let top = below ? r.bottom + GAP : r.top - GAP - mh;
+      top = Math.max(vTop + PAD, Math.min(top, vTop + vH - mh - PAD));
+      const left = Math.max(
+        vLeft + PAD,
+        Math.min(r.left, vLeft + vW - mw - PAD),
+      );
+      const maxHeight = vH - PAD * 2;
+
+      // 값이 같으면 state를 바꾸지 않아 스크롤 중 불필요한 리렌더를 막는다
+      setStyle((prev) =>
+        prev.top === top &&
+        prev.left === left &&
+        prev.maxHeight === maxHeight &&
+        prev.visibility === "visible"
+          ? prev
+          : {
+              position: "fixed",
+              top,
+              left,
+              maxHeight,
+              visibility: "visible",
+            },
+      );
+    };
+
+    place();
+    const vv = window.visualViewport;
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true); // 스크롤되는 조상까지 포착
+    vv?.addEventListener("resize", place);
+    vv?.addEventListener("scroll", place);
+    const ro = new ResizeObserver(place);
+    if (menuRef.current) ro.observe(menuRef.current);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+      vv?.removeEventListener("resize", place);
+      vv?.removeEventListener("scroll", place);
+      ro.disconnect();
+    };
+  }, [anchorRef, menuRef]);
+
+  const host =
+    (anchorRef.current?.closest("dialog") as HTMLElement | null) ??
+    document.body;
+  // 테마 변수는 .re-wrap / .re-float 에 정의돼 있어서, 수동 오버라이드(data-theme)도 같이 넘긴다
+  const theme =
+    anchorRef.current?.closest(".re-wrap")?.getAttribute("data-theme") ??
+    undefined;
+
+  return createPortal(
+    <div
+      ref={menuRef as React.RefObject<HTMLDivElement>}
+      className={`re-float ${className}`}
+      data-theme={theme}
+      style={style}
+      {...rest}
+    >
+      {children}
+    </div>,
+    host,
+  );
+}
+
+/** 바깥을 누르거나 Esc를 누르면 닫힘. 포털로 나간 메뉴 안쪽도 "안쪽"으로 판정한다. */
+function useOutsideClose(
+  open: boolean,
+  setOpen: (v: boolean) => void,
+  wrapRef: React.RefObject<HTMLElement | null>,
+  menuRef: React.RefObject<HTMLElement | null>,
+) {
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, setOpen, wrapRef, menuRef]);
+}
+
 function TBtn({
   on,
   label,
@@ -107,6 +259,10 @@ function TBtn({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* 제목 드롭다운                                                       */
+/* ------------------------------------------------------------------ */
+
 type HeadingChoice = { level: 0 | 1 | 2 | 3 | 4; label: string };
 const HEADING_CHOICES: HeadingChoice[] = [
   { level: 0, label: "본문" },
@@ -120,15 +276,10 @@ const HEADING_CHOICES: HeadingChoice[] = [
 function HeadingDropdown({ editor }: { editor: any }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
+  useOutsideClose(open, setOpen, wrapRef, menuRef);
 
   const current =
     HEADING_CHOICES.find((c) =>
@@ -146,6 +297,7 @@ function HeadingDropdown({ editor }: { editor: any }) {
   return (
     <div className="re-dd" ref={wrapRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="re-btn re-dd-trigger"
         data-tip="제목 스타일"
@@ -155,7 +307,12 @@ function HeadingDropdown({ editor }: { editor: any }) {
         {current.label} <span className="re-dd-chevron">▾</span>
       </button>
       {open && (
-        <div className="re-dd-menu" role="menu">
+        <FloatingMenu
+          anchorRef={triggerRef}
+          menuRef={menuRef}
+          className="re-dd-menu"
+          role="menu"
+        >
           {HEADING_CHOICES.map((c) => (
             <button
               key={c.level}
@@ -176,18 +333,26 @@ function HeadingDropdown({ editor }: { editor: any }) {
               )}
             </button>
           ))}
-        </div>
+        </FloatingMenu>
       )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* 링크 팝오버                                                         */
+/* ------------------------------------------------------------------ */
 
 /** 링크 추가/수정/해제 팝오버 — window.prompt 미사용 */
 function LinkPopover({ editor }: { editor: any }) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useOutsideClose(open, setOpen, wrapRef, menuRef);
 
   const openPopover = () => {
     const existing = editor.getAttributes("link").href as string | undefined;
@@ -196,17 +361,11 @@ function LinkPopover({ editor }: { editor: any }) {
   };
 
   useEffect(() => {
-    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+    if (open)
+      requestAnimationFrame(() =>
+        inputRef.current?.focus({ preventScroll: true }),
+      );
   }, [open]);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const apply = () => {
     const href = url.trim();
@@ -233,14 +392,19 @@ function LinkPopover({ editor }: { editor: any }) {
 
   return (
     <div className="re-dd" ref={wrapRef}>
-      <TBtn
-        title="링크"
-        label="🔗"
-        on={editor.isActive("link") || open}
-        onClick={openPopover}
-      />
+      {/* TBtn은 ref를 받지 않으므로 앵커는 감싸는 div로 잡는다 */}
+      <div ref={triggerRef} style={{ display: "inline-flex" }}>
+        <TBtn
+          title="링크"
+          label="🔗"
+          on={editor.isActive("link") || open}
+          onClick={() => (open ? setOpen(false) : openPopover())}
+        />
+      </div>
       {open && (
-        <div
+        <FloatingMenu
+          anchorRef={triggerRef}
+          menuRef={menuRef}
           className="re-dd-menu re-link-menu"
           role="dialog"
           aria-label="링크 편집"
@@ -284,18 +448,26 @@ function LinkPopover({ editor }: { editor: any }) {
               적용
             </button>
           </div>
-        </div>
+        </FloatingMenu>
       )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* 글자 크기 팝오버                                                    */
+/* ------------------------------------------------------------------ */
 
 /** 글자 크기 팝오버 — px 직접 입력만 제공 */
 function FontSizePopover({ editor }: { editor: any }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useOutsideClose(open, setOpen, wrapRef, menuRef);
 
   const currentRaw =
     (editor.getAttributes("textStyle").fontSize as string | undefined) ?? "";
@@ -307,17 +479,11 @@ function FontSizePopover({ editor }: { editor: any }) {
   };
 
   useEffect(() => {
-    if (open) requestAnimationFrame(() => inputRef.current?.focus());
+    if (open)
+      requestAnimationFrame(() =>
+        inputRef.current?.focus({ preventScroll: true }),
+      );
   }, [open]);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const apply = () => {
     const px = parseInt(input, 10);
@@ -334,17 +500,20 @@ function FontSizePopover({ editor }: { editor: any }) {
   return (
     <div className="re-dd" ref={wrapRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="re-btn re-dd-trigger"
         data-tip="글자 크기"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={openPopover}
+        onClick={() => (open ? setOpen(false) : openPopover())}
       >
         {currentPx ? `${currentPx}px` : "크기"}{" "}
         <span className="re-dd-chevron">▾</span>
       </button>
       {open && (
-        <div
+        <FloatingMenu
+          anchorRef={triggerRef}
+          menuRef={menuRef}
           className="re-dd-menu re-size-menu"
           role="dialog"
           aria-label="글자 크기 입력"
@@ -390,11 +559,15 @@ function FontSizePopover({ editor }: { editor: any }) {
           >
             기본 크기로
           </button>
-        </div>
+        </FloatingMenu>
       )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* 글자 색상 팝오버                                                    */
+/* ------------------------------------------------------------------ */
 
 /** 글자 색상 스와치 — 미리 정한 팔레트 + 커스텀 피커 + 색 지우기 */
 const COLOR_SWATCHES = [
@@ -416,6 +589,11 @@ function ColorPopover({ editor }: { editor: any }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState("#000000"); // 아직 적용 전인 선택값
   const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 바깥을 누르거나 Esc를 누르면 적용 없이 닫힘
+  useOutsideClose(open, setOpen, wrapRef, menuRef);
 
   const current =
     (editor.getAttributes("textStyle").color as string | undefined) ?? "";
@@ -424,24 +602,6 @@ function ColorPopover({ editor }: { editor: any }) {
     setPending(/^#([0-9a-f]{6})$/i.test(current) ? current : "#000000");
     setOpen(true);
   };
-
-  // 바깥을 누르거나 Esc를 누르면 적용 없이 닫힘
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const apply = () => {
     editor.chain().focus().setColor(pending).run();
@@ -456,6 +616,7 @@ function ColorPopover({ editor }: { editor: any }) {
   return (
     <div className="re-dd" ref={wrapRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="re-btn re-color-trigger"
         data-tip="글자 색상"
@@ -469,7 +630,9 @@ function ColorPopover({ editor }: { editor: any }) {
         />
       </button>
       {open && (
-        <div
+        <FloatingMenu
+          anchorRef={triggerRef}
+          menuRef={menuRef}
           className="re-dd-menu re-color-menu"
           role="dialog"
           aria-label="글자 색상 선택"
@@ -566,11 +729,15 @@ function ColorPopover({ editor }: { editor: any }) {
               ✓
             </button>
           </div>
-        </div>
+        </FloatingMenu>
       )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* 에디터 본체                                                         */
+/* ------------------------------------------------------------------ */
 
 export function RichEditor({
   value,
