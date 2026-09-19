@@ -856,14 +856,17 @@ export function FreeTextWidget({ conf }: { conf: WidgetConf }) {
  *  둥근 모서리는 위젯 박스가 아니라 **이미지 크기**에 맞춰 적용 (v1.9 사용자 피드백 — 여백까지 둥글면 티가 안 남) */
 function ContainImg({
   fileRef,
+  src,
   rounded,
   onActivate,
 }: {
-  fileRef: string;
+  fileRef?: string; // 예전에 업로드해 둔 이미지 (IndexedDB)
+  src?: string; // 이미지 링크(URL)
   rounded: boolean;
   onActivate?: () => void;
 }) {
-  const url = useBlobUrl(fileRef);
+  const blobUrl = useBlobUrl(fileRef);
+  const url = src || blobUrl; // 링크가 있으면 링크 우선
   const imgRef = useRef<HTMLImageElement>(null);
   // 투명 픽셀 판독용 캔버스 — 이미지마다 한 번만 그린다
   const cacheRef = useRef<{ url: string; c: HTMLCanvasElement } | null>(null);
@@ -987,6 +990,7 @@ export function DecoWidget({ conf }: { conf: WidgetConf }) {
           <ContainImg
             key={cur.id}
             fileRef={cur.imgId}
+            src={cur.img}
             rounded={rounded}
             onActivate={canGo ? onBody : undefined}
           />
