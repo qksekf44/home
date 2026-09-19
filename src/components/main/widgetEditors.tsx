@@ -800,14 +800,6 @@ export function DecoEditor({
         )}
       </div>
 
-      <p className="hint" style={{ margin: 0 }}>
-        이미지는 링크로만 추가합니다 — 원본은 잘리지 않고 위치·확대만 저장되며,
-        위젯 크기를 바꾸면 [✂ 위치]로 다시 맞출 수 있습니다. 여러 장을 넣으면 위
-        순서대로 넘어가고, 각 장면의 이미지 링크 칸을 고치면 그 장면의 이미지가
-        교체됩니다. 링크가 나중에 삭제되거나 외부 접근이 막히면 이미지가 보이지
-        않을 수 있습니다
-      </p>
-
       {cropTarget && (
         <DecoCrop
           sl={cropTarget}

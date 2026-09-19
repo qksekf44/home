@@ -36,7 +36,7 @@ import {
   TodoEditor,
   TodoSetItem,
 } from "@/components/main/widgetEditors";
-import { CroppedBlobImg, CropValue } from "@/components/ui/CropEditor";
+import { CroppedBlobImg, CropImg, CropValue } from "@/components/ui/CropEditor";
 import { useLocalList } from "@/lib/postStore";
 import {
   RoadItem,
@@ -124,22 +124,12 @@ export function BannerWidget({ conf }: { conf: WidgetConf }) {
           key={sl.id}
           className={`slide ${i === Math.min(cur, slides.length - 1) ? "on" : ""}`}
         >
-          {sl.imgId ? (
-            /* 업로드 이미지 — 원본 보존 + 위치 크롭만 적용 (배너 크기가 바뀌어도 비율 좌표로 재현) */
+          {sl.img ? (
+            /* 이미지 링크 — 원본 보존 + 위치 크롭만 적용 (배너 크기가 바뀌어도 비율 좌표로 재현) */
+            <CropImg src={sl.img} crop={sl.crop} />
+          ) : sl.imgId ? (
+            /* 예전에 업로드해 둔 이미지 */
             <CroppedBlobImg fileRef={sl.imgId} crop={sl.crop} ph="" />
-          ) : sl.img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={sl.img}
-              alt=""
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
           ) : (
             <div
               className={`ph ${sl.cls ?? ""}`}
@@ -192,7 +182,7 @@ export function BannerWidget({ conf }: { conf: WidgetConf }) {
           open={mngOpen}
           onClose={() => setMngOpen(false)}
           title="슬라이드 배너 관리"
-          desc="이미지 업로드 · 캡션 · 링크(내부 경로 또는 외부 URL) · ⠿ 드래그로 순서 · 원본은 잘리지 않음"
+          desc="이미지 링크 · 캡션 · 이동 링크(내부 경로 또는 외부 URL) · ⠿ 드래그로 순서 · 원본은 잘리지 않음"
         >
           {mngOpen && (
             <BannerEditor
@@ -1003,12 +993,17 @@ export function DecoWidget({ conf }: { conf: WidgetConf }) {
             }}
             onClick={canGo ? onBody : undefined}
           >
-            <CroppedBlobImg
-              key={cur.id}
-              fileRef={cur.imgId}
-              crop={cur.crop}
-              ph=""
-            />
+            {/* 이미지 링크(img) 우선, 없으면 예전 업로드본(imgId) */}
+            {cur.img ? (
+              <CropImg key={cur.id} src={cur.img} crop={cur.crop} />
+            ) : (
+              <CroppedBlobImg
+                key={cur.id}
+                fileRef={cur.imgId}
+                crop={cur.crop}
+                ph=""
+              />
+            )}
           </div>
         )
       ) : (
@@ -1036,7 +1031,7 @@ export function DecoWidget({ conf }: { conf: WidgetConf }) {
           onClose={() => setOpen(false)}
           small
           title="장식 이미지"
-          desc="여러 장을 넣으면 순서대로 넘어갑니다 — 위치 크롭은 현재 위젯 비율 기준, 원본은 잘리지 않음"
+          desc="이미지는 링크로 추가합니다 — 여러 장을 넣으면 순서대로 넘어갑니다 · 위치 크롭은 현재 위젯 비율 기준, 원본은 잘리지 않음"
         >
           {open && <DecoEditor conf={conf} onClose={() => setOpen(false)} />}
         </Modal>

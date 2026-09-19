@@ -564,8 +564,8 @@ export function useMainStore(): MainCtx {
 
 export interface DecoSlide {
   id: string;
-  img?: string;
-  imgId?: string;
+  img?: string; // 이미지 링크(URL) — 새로 추가하는 이미지는 전부 이쪽
+  imgId?: string; // 예전에 업로드해 둔 이미지(IndexedDB) — 기존 저장분 표시용
   crop?: import("@/components/ui/CropEditor").CropValue;
   link?: string;
 }
@@ -574,10 +574,12 @@ export interface DecoSlide {
  * 이미지 위젯의 장면 목록.
  * 예전에는 이미지 한 장(imgId/crop/link)만 담았다 — 그 저장분도 한 장짜리 목록으로 읽어
  * 화면·편집기가 슬라이드 하나로만 다루면 되게 한다.
+ * 이미지 링크(img) 또는 예전 업로드본(imgId) 중 하나라도 있으면 유효한 장면으로 친다.
  */
 export function decoSlides(settings: Record<string, unknown>): DecoSlide[] {
   const list = settings.slides as DecoSlide[] | undefined;
-  if (Array.isArray(list) && list.length) return list.filter((s) => s?.imgId);
+  if (Array.isArray(list) && list.length)
+    return list.filter((s) => s?.imgId || s?.img);
   const imgId = settings.imgId as string | undefined;
   if (!imgId) return [];
   return [
