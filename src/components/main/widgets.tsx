@@ -262,45 +262,325 @@ export function MenuListWidget() {
 }
 
 /* ---------- MEMO — 관리자 클릭 시 큰 편집 모달 (4.12 v1.8) ---------- */
+// export function MemoWidget({ conf }: { conf: WidgetConf }) {
+//   const { isAdmin } = useAuth();
+//   const { editOn, updateWidget } = useMainStore();
+//   const [open, setOpen] = useState(false);
+//   const [draft, setDraft] = useState("");
+//   const text = (conf.settings.text as string) ?? "";
+//   useEditEvent(conf.id, () => {
+//     setDraft(text);
+//     setOpen(true);
+//   }); // 편집모드 우클릭 → 설정 (v1.9)
+//   return (
+//     <div
+//       className="panel widget"
+//       style={{ cursor: isAdmin ? "pointer" : undefined }}
+//       onClick={(e) => {
+//         if ((e.target as HTMLElement).closest(".modal-ov")) return;
+//         if (isAdmin && !editOn) {
+//           setDraft(text);
+//           setOpen(true);
+//         }
+//       }}
+//     >
+//       <h4>BANNER {isAdmin && <span className="more">관리 ›</span>}</h4>
+//       <p
+//         style={{
+//           fontSize: 12,
+//           lineHeight: 1.7,
+//           color: "#3a3f47",
+//           whiteSpace: "pre-line",
+//         }}
+//       >
+//         {text || " 비어 있습니다"}
+//       </p>
+
+//       <Modal
+//         open={open}
+//         onClose={() => setOpen(false)}
+//         title="메모 관리"
+//         desc="메인 메모 위젯 내용 — 관리자 전용"
+//         actions={
+//           <>
+//             <button className="btn btn-ghost" onClick={() => setOpen(false)}>
+//               CANCEL
+//             </button>
+//             <button
+//               className="btn btn-dark"
+//               onClick={() => {
+//                 updateWidget(
+//                   conf.id,
+//                   { settings: { ...conf.settings, text: draft } },
+//                   { persist: true },
+//                 );
+//                 setOpen(false);
+//               }}
+//             >
+//               SAVE
+//             </button>
+//           </>
+//         }
+//       >
+//         <KTextarea value={draft} onChange={(e) => setDraft(e.target.value)} />
+//       </Modal>
+//     </div>
+//   );
+// }
+
+// 배너 아이템 인터페이스 정의
+export interface BannerItem {
+  id?: string;
+  name: string;
+  bannerUrl: string; // 배너 이미지 URL
+  blogUrl: string; // 클릭 시 이동할 링크 URL
+  type: "neighbor" | "union";
+  textColor?: string | null;
+  bgColor?: string | null;
+}
+
 export function MemoWidget({ conf }: { conf: WidgetConf }) {
   const { isAdmin } = useAuth();
   const { editOn, updateWidget } = useMainStore();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
-  const text = (conf.settings.text as string) ?? "";
+
+  // 저장되어 있는 배너 리스트 (없을 경우 빈 배열)
+  const banners: BannerItem[] = (conf.settings.items as BannerItem[]) ?? [];
+
+  // 모달 안에서 편집할 임시 배너 목록 상태
+  const [draftList, setDraftList] = useState<BannerItem[]>([]);
+
+  // 호버 중인 배너 정보 (툴팁용)
+  const [hoveredBanner, setHoveredBanner] = useState<{
+    banner: BannerItem;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // 편집 이벤트 핸들러 (우클릭 등)
   useEditEvent(conf.id, () => {
-    setDraft(text);
+    setDraftList(banners);
     setOpen(true);
-  }); // 편집모드 우클릭 → 설정 (v1.9)
+  });
+
+  // 관리자 모달 열기 함수
+  const handleOpenModal = () => {
+    if (isAdmin && !editOn) {
+      setDraftList(banners.length > 0 ? [...banners] : []);
+      setOpen(true);
+    }
+  };
+
+  // 새 배너 항목 추가
+  const handleAddBanner = () => {
+    const newItem: BannerItem = {
+      id: Date.now().toString(),
+      name: "",
+      bannerUrl: "",
+      blogUrl: "",
+      type: "neighbor",
+      textColor: "#ffffff",
+      bgColor: "#2b2d31",
+    };
+    setDraftList([...draftList, newItem]);
+  };
+
+  // 배너 항목 수정
+  const handleItemChange = (
+    index: number,
+    key: keyof BannerItem,
+    value: any,
+  ) => {
+    const next = [...draftList];
+    next[index] = { ...next[index], [key]: value };
+    setDraftList(next);
+  };
+
+  // 배너 항목 삭제
+  const handleRemoveBanner = (index: number) => {
+    setDraftList(draftList.filter((_, i) => i !== index));
+  };
+
+  // 마우스 호버 이벤트 핸들러
+  const handleMouseEnter = (e: React.MouseEvent, item: BannerItem) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHoveredBanner({
+      banner: item,
+      x: rect.left + rect.width / 2,
+      y: rect.top - 8, // 배너 위쪽에 툴팁 표시
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredBanner(null);
+  };
+
   return (
     <div
-      className="panel widget"
-      style={{ cursor: isAdmin ? "pointer" : undefined }}
+      className="panel widget banner-widget"
+      style={{
+        cursor: isAdmin ? "pointer" : undefined,
+        position: "relative",
+        overflowY: "scroll",
+      }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest(".modal-ov")) return;
-        if (isAdmin && !editOn) {
-          setDraft(text);
-          setOpen(true);
-        }
+        if ((e.target as HTMLElement).closest(".banner-item-link")) return; // 배너 링크 클릭 시 모달 안 열림
+        handleOpenModal();
       }}
     >
-      <h4>MEMO {isAdmin && <span className="more">관리 ›</span>}</h4>
-      <p
+      <h4
         style={{
-          fontSize: 12,
-          lineHeight: 1.7,
-          color: "#3a3f47",
-          whiteSpace: "pre-line",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
-        {text || "메모가 비어 있습니다"}
-      </p>
+        BANNER {isAdmin && <span className="more">관리 ›</span>}
+      </h4>
 
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "8px",
+        }}
+      >
+        <div
+          className="my-banner"
+          onClick={() =>
+            navigator.clipboard.writeText("deepkysss.vercel.app/banner.png")
+          }
+        >
+          <img src="/banner.png" />
+        </div>
+        <div
+          className="my-banner"
+          onClick={() =>
+            navigator.clipboard.writeText("deepkysss.vercel.app/banner2.png")
+          }
+        >
+          <img src="/banner2.png" />
+        </div>
+        <span
+          style={{
+            margin: "0 auto",
+            fontSize: "10px",
+          }}
+        >
+          클릭 시 배너 링크가 복사됩니다.
+        </span>
+      </div>
+
+      {/* 배너 목록 렌더링 영역 */}
+      <div
+        className="banner-list"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          marginTop: "10px",
+          justifyContent: "center",
+        }}
+      >
+        {banners.length === 0 ? (
+          <p style={{ fontSize: 12, color: "#8a8f9d" }}>
+            등록된 배너가 없습니다.
+          </p>
+        ) : (
+          banners.map((item, idx) => {
+            console.log(item);
+            return (
+              <a
+                key={item.id || idx}
+                href={item.blogUrl || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="banner-item-link"
+                onMouseEnter={(e) => handleMouseEnter(e, item)}
+                onMouseLeave={handleMouseLeave}
+                style={{
+                  display: "inline-block",
+                  borderRadius: "4px",
+                  overflow: "hidden",
+                  transition: "transform 0.2s ease",
+                }}
+              >
+                {item?.bannerUrl ? (
+                  <img
+                    src={item.bannerUrl}
+                    alt={item.name}
+                    style={{
+                      display: "block",
+                      maxHeight: "60px",
+                      objectFit: "contain",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      padding: "6px 12px",
+                      backgroundColor: item.bgColor || "#3a3f47",
+                      color: item.textColor || "#ffffff",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    {item.name || "배너"}
+                  </div>
+                )}
+              </a>
+            );
+          })
+        )}
+      </div>
+
+      {/* 호버 시 나타나는 커스텀 툴팁 */}
+      {hoveredBanner && (
+        <div
+          className="banner-tooltip"
+          style={{
+            position: "fixed",
+            left: `${hoveredBanner.x}px`,
+            top: `${hoveredBanner.y}px`,
+            transform: "translate(-50%, -100%)",
+            backgroundColor: hoveredBanner.banner.bgColor || "#1e1e24",
+            color: hoveredBanner.banner.textColor || "#ffffff",
+            padding: "4px 10px",
+            borderRadius: "4px",
+            fontSize: "12px",
+            fontWeight: 500,
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "none",
+            zIndex: 9999,
+          }}
+        >
+          {hoveredBanner.banner.name || "이름 없음"}
+          {/* 툴팁 화살표 효과 */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: "-4px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              borderWidth: "4px 4px 0 4px",
+              borderStyle: "solid",
+              borderColor: `${hoveredBanner.banner.bgColor || "#1e1e24"} transparent transparent transparent`,
+            }}
+          />
+        </div>
+      )}
+
+      {/* 관리자 모달 */}
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="메모 관리"
-        desc="메인 메모 위젯 내용 — 관리자 전용"
+        title="배너 관리"
+        desc="배너 항목들을 관리합니다 — 관리자 전용"
         actions={
           <>
             <button className="btn btn-ghost" onClick={() => setOpen(false)}>
@@ -311,7 +591,7 @@ export function MemoWidget({ conf }: { conf: WidgetConf }) {
               onClick={() => {
                 updateWidget(
                   conf.id,
-                  { settings: { ...conf.settings, text: draft } },
+                  { settings: { ...conf.settings, items: draftList } },
                   { persist: true },
                 );
                 setOpen(false);
@@ -322,7 +602,160 @@ export function MemoWidget({ conf }: { conf: WidgetConf }) {
           </>
         }
       >
-        <KTextarea value={draft} onChange={(e) => setDraft(e.target.value)} />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            maxHeight: "60vh",
+            overflowY: "auto",
+            paddingRight: "4px",
+          }}
+        >
+          {draftList.map((item, index) => (
+            <div
+              key={item.id || index}
+              style={{
+                border: "1px solid #e1e4e8",
+                borderRadius: "6px",
+                padding: "12px",
+                backgroundColor: "#f8f9fa",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <span style={{ fontWeight: "bold", fontSize: "13px" }}>
+                  배너 #{index + 1}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    color: "#d9381e",
+                    padding: "2px 8px",
+                    fontSize: "12px",
+                  }}
+                  onClick={() => handleRemoveBanner(index)}
+                >
+                  삭제
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="이름 (name)"
+                  value={item.name}
+                  onChange={(e) =>
+                    handleItemChange(index, "name", e.target.value)
+                  }
+                  style={{ padding: "6px", fontSize: "12px" }}
+                />
+                <select
+                  value={item.type}
+                  onChange={(e) =>
+                    handleItemChange(
+                      index,
+                      "type",
+                      e.target.value as "neighbor" | "union",
+                    )
+                  }
+                  style={{ padding: "6px", fontSize: "12px" }}
+                >
+                  <option value="neighbor">neighbor</option>
+                  <option value="union">union</option>
+                </select>
+              </div>
+
+              <input
+                type="text"
+                placeholder="배너 이미지 URL (bannerUrl)"
+                value={item.bannerUrl}
+                onChange={(e) =>
+                  handleItemChange(index, "bannerUrl", e.target.value)
+                }
+                style={{ padding: "6px", fontSize: "12px" }}
+              />
+
+              <input
+                type="text"
+                placeholder="블로그/링크 URL (blogUrl)"
+                value={item.blogUrl}
+                onChange={(e) =>
+                  handleItemChange(index, "blogUrl", e.target.value)
+                }
+                style={{ padding: "6px", fontSize: "12px" }}
+              />
+
+              <div
+                style={{ display: "flex", gap: "12px", alignItems: "center" }}
+              >
+                <label
+                  style={{
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  배경색:
+                  <input
+                    type="color"
+                    value={item.bgColor || "#2b2d31"}
+                    onChange={(e) =>
+                      handleItemChange(index, "bgColor", e.target.value)
+                    }
+                  />
+                </label>
+                <label
+                  style={{
+                    fontSize: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  글자색:
+                  <input
+                    type="color"
+                    value={item.textColor || "#ffffff"}
+                    onChange={(e) =>
+                      handleItemChange(index, "textColor", e.target.value)
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              border: "1px dashed #ccc",
+              width: "100%",
+              padding: "8px",
+              fontSize: "13px",
+            }}
+            onClick={handleAddBanner}
+          >
+            + 배너 추가하기
+          </button>
+        </div>
       </Modal>
     </div>
   );
@@ -350,7 +783,12 @@ export function DiaryWidget() {
     .slice(0, 3);
   if (!canSee) return null; // 메뉴가 비공개면 위젯 자체를 띄우지 않는다 (v2.0)
   return (
-    <div className="panel widget" style={{ margin: 0 }}>
+    <div
+      className="panel widget"
+      style={{
+        margin: 0,
+      }}
+    >
       <h4>
         DIARY{" "}
         <span className="more" onClick={() => router.push("/diary")}>

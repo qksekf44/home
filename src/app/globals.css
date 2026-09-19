@@ -7796,3 +7796,8 @@ body.edit-on .main-grid.gridlines .wgt {
   font-size: 14px;
   line-height: 1.8 !important;
 }
+
+.my-banner img:hover {
+  transform: scale(1.08);
+  transition-duration: 0.2s;
+}

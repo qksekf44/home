@@ -68,7 +68,7 @@ export const WIDGET_META: Record<WidgetType, { title: string; desc: string }> =
       title: "메뉴리스트",
       desc: "모바일 전용 — PC에서는 상단 메뉴가 대신함",
     },
-    memo: { title: "MEMO", desc: "관리자 메모 (클릭 시 관리 모달)" },
+    memo: { title: "BANNER", desc: "제가 맘대로 배너 리스트로 바꿔봤어요." },
     diary: { title: "DIARY", desc: "최근 일기 (무드 아이콘 · 비공개 미노출)" },
     latest: { title: "LATEST", desc: "최신 그림 3장" },
     dday: { title: "D-DAY", desc: "디데이 목록" },
