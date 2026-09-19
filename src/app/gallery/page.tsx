@@ -102,7 +102,7 @@ function BackupPageInner() {
     `${count(p)}장 · ${fmtDate(p.madeDate ? p.madeDate + "T00:00:00" : p.date)}`;
 
   return (
-    <section className="page">
+    <section className="page gallery-container">
       <div className="page-head">
         <PageTitle>{sec.id === "main" ? "GALLERY" : sec.name}</PageTitle>
         <EditableDesc

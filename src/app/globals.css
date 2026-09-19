@@ -2064,11 +2064,14 @@ a {
   display: none;
 }
 @media (max-width: 620px) {
+  .gallery-container {
+    margin-bottom: 52px;
+  }
+
   .gallery-grid {
     display: flex !important;
     flex-direction: column;
     gap: 16px;
-    margin-bottom: 10px;
   }
   .rp-layout {
     display: flex;
