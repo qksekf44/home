@@ -1721,6 +1721,12 @@ a {
   .tcd-layout {
     grid-template-columns: 1fr;
   }
+
+  .gallery-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
 }
 .tc-card .bd {
   padding: 9px 13px 13px;
@@ -3441,6 +3447,12 @@ a {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
 .g3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -6252,7 +6264,7 @@ body.edit-on .main-grid.gridlines .wgt {
   /* 호버 문제 */
 }
 .g-item:hover {
-  transform: translateY(-4px);
+  transform: scale(1.05);
 }
 .g-item .thumb {
   aspect-ratio: 1/1;

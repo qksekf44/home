@@ -148,7 +148,7 @@ function BackupPageInner() {
       {/* 갤러리/리스트 모두 렌더해 두고 display로만 전환 (v1.9) —
           전환 때마다 재마운트되며 이미지가 다시 로드·등장하던 깜빡임 제거 */}
       <div
-        className="g3"
+        className="gallery-grid"
         style={{
           display: view === "gal" && visible.length > 0 ? undefined : "none",
         }}
@@ -159,7 +159,6 @@ function BackupPageInner() {
           const isSecret = p?.password !== undefined;
           const isVeiled = folded || isSecret;
 
-          console.log(p);
           return (
             <div
               key={p.id}
@@ -261,49 +260,7 @@ function BackupPageInner() {
                   </span>
                 )}
 
-                {isVeiled && (
-                  <div className="cover">
-                    {/* {isSecret && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: "10px",
-                          right: "10px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "50%",
-                          backgroundColor: "rgba(0, 0, 0, 0.5)",
-                          backdropFilter: "blur(4px)",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                        }}
-                      >
-                        <svg
-                          width="12"
-                          height="12"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="white"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect
-                            x="3"
-                            y="11"
-                            width="18"
-                            height="11"
-                            rx="2"
-                            ry="2"
-                          />
-                          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
-                      </div>
-                    )} */}
-                  </div>
-                )}
+                {isVeiled && <div className="cover"></div>}
               </div>
             </div>
           );
