@@ -16,11 +16,12 @@
   --re-code-bg: rgba(0, 0, 0, 0.06);
   --re-placeholder: #9ca3af;
 
+  position: relative;
   border: 1px solid var(--re-border);
   border-radius: 10px;
   background: var(--re-bg);
   color: var(--re-fg);
-  overflow: hidden;
+  overflow: visible;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +58,8 @@
 
 /* ---------- 툴바 ---------- */
 .re-toolbar {
+  position: relative;
+  z-index: 50; /* 본문 스크롤 레이어보다 높게 지정 */
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -64,6 +67,8 @@
   padding: 6px;
   background: var(--re-toolbar-bg);
   border-bottom: 1px solid var(--re-border);
+  border-top-left-radius: 9px;
+  border-top-right-radius: 9px;
 }
 
 .re-sep {
@@ -104,7 +109,7 @@
   color: var(--re-btn-on-fg);
 }
 
-/* ---------- 드롭다운 (제목, 링크) ---------- */
+/* ---------- 드롭다운 & 팝오버 공통 ---------- */
 .re-dd {
   position: relative;
   flex-shrink: 0;
@@ -123,7 +128,7 @@
 
 .re-dd-menu {
   position: absolute;
-  z-index: 20;
+  z-index: 99999;
   top: calc(100% + 4px);
   left: 0;
   min-width: 160px;
@@ -277,6 +282,7 @@
 /* ---------- 본문 영역 ---------- */
 .re-body {
   position: relative;
+  z-index: 1; /* 툴바보다 낮은 z-index */
 }
 
 .re-content {
@@ -393,7 +399,7 @@
   font-size: 15px;
 }
 
-/* ---------- 반응형 (모바일) ---------- */
+/* ---------- 반응형 (모바일 핵심 해결 부분) ---------- */
 @media (max-width: 480px) {
   .re-toolbar {
     padding: 4px;
@@ -406,14 +412,22 @@
   }
   .re-content {
     padding: 12px;
-    font-size: 16px;
-  } /* iOS 확대 방지 위해 16px 이상 */
-  .re-dd-menu {
-    left: 0;
-    right: auto;
-    min-width: 150px;
+    font-size: 16px; /* iOS 자동 확대 방지 */
   }
-  .re-link-menu {
-    min-width: 220px;
+
+  /* 모바일에서 모든 드롭다운/팝오버를 아래가 아닌 위로(Bottom-Up) 연다 */
+  .re-dd-menu {
+    top: auto;
+    bottom: calc(100% + 4px); /* 버튼 바로 위로 배치 */
+    left: 0;
+    max-width: calc(100vw - 24px);
+  }
+
+  /* 우측에 치우친 버튼의 팝오버(컬러피커, 링크 등)는 우측 기준 정렬하여 화면 이탈 방지 */
+  .re-color-menu,
+  .re-link-menu,
+  .re-size-menu {
+    left: auto;
+    right: 0;
   }
 }

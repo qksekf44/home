@@ -414,23 +414,37 @@ const COLOR_SWATCHES = [
 
 function ColorPopover({ editor }: { editor: any }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState("#000000"); // 아직 적용 전인 선택값
   const wrapRef = useRef<HTMLDivElement>(null);
-  const customRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
 
   const current =
     (editor.getAttributes("textStyle").color as string | undefined) ?? "";
 
-  const pick = (hex: string) => {
-    editor.chain().focus().setColor(hex).run();
+  const openPopover = () => {
+    setPending(/^#([0-9a-f]{6})$/i.test(current) ? current : "#000000");
+    setOpen(true);
+  };
+
+  // 바깥을 누르거나 Esc를 누르면 적용 없이 닫힘
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const apply = () => {
+    editor.chain().focus().setColor(pending).run();
     setOpen(false);
   };
 
@@ -446,7 +460,7 @@ function ColorPopover({ editor }: { editor: any }) {
         className="re-btn re-color-trigger"
         data-tip="글자 색상"
         onMouseDown={(e) => e.preventDefault()}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openPopover())}
       >
         <span>A</span>
         <span
@@ -459,44 +473,99 @@ function ColorPopover({ editor }: { editor: any }) {
           className="re-dd-menu re-color-menu"
           role="dialog"
           aria-label="글자 색상 선택"
+          // 색 입력칸(input) 외에는 에디터 포커스/선택 영역을 뺏기지 않게 한다
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).tagName !== "INPUT")
+              e.preventDefault();
+          }}
         >
+          {/* 스와치: 눌러도 닫히지 않고 선택만 바뀐다 */}
           <div className="re-color-grid">
             {COLOR_SWATCHES.map((hex) => (
               <button
                 key={hex}
                 type="button"
-                className={`re-color-swatch ${current.toLowerCase() === hex ? "on" : ""}`}
+                className={`re-color-swatch ${pending.toLowerCase() === hex ? "on" : ""}`}
                 style={{ background: hex }}
                 data-tip={hex}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => pick(hex)}
+                onClick={() => setPending(hex)}
               />
             ))}
+          </div>
+
+          {/* 직접 선택: 원판에서 드래그해도 pending만 바뀌고 팝오버는 유지 */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <input
+              type="color"
+              value={pending}
+              onChange={(e) => setPending(e.target.value)}
+              onClick={(e) =>
+                e.stopPropagation()
+              } /* 모바일 색상창 클릭시 팝오버 닫힘 방지 */
+              aria-label="직접 색 선택"
+              style={{
+                width: 36,
+                height: 28,
+                padding: 0,
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+              }}
+            />
+            <code style={{ fontSize: 12 }}>{pending.toUpperCase()}</code>
+            <span
+              title="미리보기"
+              style={{
+                marginLeft: "auto",
+                width: 22,
+                height: 22,
+                borderRadius: 4,
+                background: pending,
+                border: "1px solid rgba(128,128,128,.4)",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              marginTop: 10,
+              alignItems: "center",
+            }}
+          >
             <button
               type="button"
-              className="re-color-swatch re-color-custom"
-              data-tip="직접 선택"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => customRef.current?.click()}
+              className="re-btn re-color-remove"
+              onClick={remove}
             >
-              +
-              <input
-                ref={customRef}
-                type="color"
-                className="re-color-input"
-                value={/^#([0-9a-f]{6})$/i.test(current) ? current : "#000000"}
-                onChange={(e) => pick(e.target.value)}
-              />
+              색상 지우기
+            </button>
+            <span style={{ marginLeft: "auto" }} />
+            <button
+              type="button"
+              className="re-btn"
+              data-tip="취소"
+              onClick={() => setOpen(false)}
+            >
+              ✕
+            </button>
+            <button
+              type="button"
+              className="re-btn re-link-apply"
+              data-tip="적용"
+              onClick={apply}
+            >
+              ✓
             </button>
           </div>
-          <button
-            type="button"
-            className="re-btn re-color-remove"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={remove}
-          >
-            색상 지우기
-          </button>
         </div>
       )}
     </div>
