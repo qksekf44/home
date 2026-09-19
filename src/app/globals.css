@@ -3447,6 +3447,7 @@ a {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
