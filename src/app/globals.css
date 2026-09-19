@@ -1721,12 +1721,6 @@ a {
   .tcd-layout {
     grid-template-columns: 1fr;
   }
-
-  .gallery-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
 }
 .tc-card .bd {
   padding: 9px 13px 13px;
@@ -2070,6 +2064,11 @@ a {
   display: none;
 }
 @media (max-width: 620px) {
+  .gallery-grid {
+    display: flex !important;
+    flex-direction: column;
+    gap: 16px;
+  }
   .rp-layout {
     display: flex;
     flex-direction: column;
