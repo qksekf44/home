@@ -2067,6 +2067,9 @@ a {
   .gallery-container {
     margin-bottom: 52px;
   }
+  .single-image-wid {
+    display: none !important;
+  }
 
   .gallery-grid {
     display: flex !important;
@@ -7800,4 +7803,17 @@ body.edit-on .main-grid.gridlines .wgt {
 .my-banner img:hover {
   transform: scale(1.08);
   transition-duration: 0.2s;
+}
+
+#appMain {
+  /* 1. 크롬, 사파리, 최신 엣지, 오페라 (WebKit 기반 브라우저) */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 2. 파이어폭스 (Firefox) */
+  scrollbar-width: none;
+
+  /* 3. 구형 인터넷 익스플로러 및 엣지 (IE/Edge Legacy) */
+  -ms-overflow-style: none;
 }
