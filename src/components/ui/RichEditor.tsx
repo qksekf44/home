@@ -2,6 +2,35 @@
 // 리치 텍스트 에디터 (TipTap) — 프로필 탭 등 HTML 콘텐츠 작성용
 // 자체 스타일 툴바 (7장 — 기본 UI 금지) · 출력은 HTML, 저장 시 새니타이즈는 렌더 쪽에서 (6.3)
 //
+// v2.8 변경점 — 이미지 정렬을 updateAttributes 대신 트랜잭션으로 직접 적용
+// - 선택된 이미지(NodeSelection)의 노드 속성을 setNodeMarkup 으로 바꾼다 (getSelectedImage / setImageAlign)
+// - 스키마에 align 속성이 없으면(AlignableImage 미등록 등) 조용히 실패하지 않고 콘솔에 원인을 출력한다
+// - 툴바/메뉴가 "이미지가 선택됐는지"를 isActive 가 아니라 같은 함수(getSelectedImage)로 판단
+//
+// v2.7 변경점 — 이미지 선택/정렬 보강
+// - 이미지를 클릭하면 이미지 바로 옆에 정렬 메뉴(왼쪽/가운데/오른쪽)가 뜬다 (ImageAlignMenu, FloatingMenu 재사용)
+// - 선택된 이미지에 파란 테두리 표시 (re-editor.additions.css) — 선택됐는지 눈으로 확인 가능
+// - 툴바 정렬 버튼이 "렌더 시점의 값"이 아니라 클릭 순간의 실제 선택 상태를 보고 이미지/문단을 결정
+//   (useEditorState 구독 추가 → 선택이 바뀌면 툴바도 즉시 갱신)
+//
+// v2.6 변경점 — SimpleEditor(tiptap 템플릿)의 기능을 전부 이식 (UI는 전부 자체 스타일로 새로 구현)
+// - 서식: 인라인 코드(code), 형광펜(Highlight, multicolor), 위 첨자(Superscript), 아래 첨자(Subscript)
+// - 블록: 코드 블록(CodeBlock) 버튼 추가
+// - 형광펜: 스와치 팔레트 + 커스텀 피커 + 지우기 자체 팝오버 (HighlightPopover)
+// - 찾기/바꾸기: FindAndReplace 확장 + 자체 패널 (FindReplacePanel)
+//   · 이전/다음 결과, 대소문자 구분, 단어 단위, 정규식, 바꾸기, 모두 바꾸기, 결과 개수 표시
+//   · 툴바의 🔍 버튼으로 열고 닫는다. 닫으면 검색어와 하이라이트가 지워진다
+// - Typography: "..." → …, "->" → →, 따옴표 등 자동 치환
+// - Selection: 에디터가 포커스를 잃어도(팝오버/찾기 패널 사용 중) 선택 영역이 계속 보인다 (.selection 클래스)
+// - Link: enableClickSelection — 링크를 클릭하면 링크 전체가 선택된다
+// ※ 새니타이저(렌더 쪽, 6.3) 허용 목록에 mark(style, data-color), sub, sup, pre, code(class) 를 추가해야 한다
+//
+// v2.5 변경점
+// - 이미지 정렬: 이미지를 클릭(선택)한 뒤 정렬 버튼을 누르면 이미지 자체의 align 속성이 바뀐다.
+//   · AlignableImage: Image 확장에 align 속성 추가 (data-align + display:block + margin auto)
+//   · 문단 text-align과 무관하므로 CSS의 img { display:block } 과도 충돌하지 않는다
+//   · 이미지가 선택돼 있으면 정렬 버튼이 이미지에, 아니면 기존처럼 문단에 적용 (양쪽 정렬은 이미지에서 비활성)
+//
 // v2.4 변경점
 // - 모바일에서 팝오버(컬러피커/링크/글자 크기/제목)가 가려지던 문제 수정
 //   · 모든 팝오버를 FloatingMenu로 교체: document.body(또는 <dialog>)로 포털 + position: fixed
@@ -28,7 +57,12 @@ import React, {
   useCallback,
 } from "react";
 import { createPortal } from "react-dom";
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import {
+  useEditor,
+  useEditorState,
+  EditorContent,
+  Extension,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
@@ -38,6 +72,13 @@ import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
+import { Typography } from "@tiptap/extension-typography";
+import { Highlight } from "@tiptap/extension-highlight";
+import { Subscript } from "@tiptap/extension-subscript";
+import { Superscript } from "@tiptap/extension-superscript";
+import { FindAndReplace } from "@tiptap/extension-find-and-replace";
+import { Selection } from "@tiptap/extensions";
+import { NodeSelection } from "@tiptap/pm/state";
 import { putBlob } from "@/lib/blobStore";
 import { useToast } from "@/components/ui/Toast";
 import "./re-editor.css";
@@ -82,6 +123,42 @@ const FontSize = Extension.create({
     } as any;
   },
 });
+
+/** 정렬 속성(align)을 가진 이미지 — 이미지를 클릭(선택)한 뒤 정렬 버튼을 누르면 이 속성이 바뀐다.
+ *  블록 이미지 + margin auto 방식이라 문단 text-align과 무관하게 동작한다.
+ *  저장되는 HTML: <img data-align="center" style="display:block;margin-left:auto;margin-right:auto"> */
+const ALIGN_STYLE: Record<string, string> = {
+  left: "margin-left:0;margin-right:auto",
+  center: "margin-left:auto;margin-right:auto",
+  right: "margin-left:auto;margin-right:0",
+};
+
+const AlignableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-align"),
+        renderHTML: (attrs: { align?: string | null }) => {
+          if (!attrs.align || !ALIGN_STYLE[attrs.align]) return {};
+          return {
+            "data-align": attrs.align,
+            style: `display:block;${ALIGN_STYLE[attrs.align]}`,
+          };
+        },
+      },
+    };
+  },
+});
+
+/** 지금 선택돼 있는 이미지 노드 선택(NodeSelection)을 돌려준다. 이미지가 선택돼 있지 않으면 null. */
+function getSelectedImage(editor: any): NodeSelection | null {
+  const sel = editor?.state?.selection;
+  return sel instanceof NodeSelection && sel.node.type.name === "image"
+    ? sel
+    : null;
+}
 
 /** 로컬 모드용 — 파일을 그대로 본문에 심는다 (서버가 없어 올릴 곳이 없을 때) */
 function toDataUrl(f: File): Promise<string> {
@@ -736,6 +813,372 @@ function ColorPopover({ editor }: { editor: any }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 형광펜 팝오버                                                       */
+/* ------------------------------------------------------------------ */
+
+/** 형광펜 스와치 — 파스텔 톤 (글자색이 어두운 배경/밝은 배경 모두에서 읽히도록 채도를 낮춤) */
+const HIGHLIGHT_SWATCHES = [
+  "#fef08a", // 노랑
+  "#fed7aa", // 주황
+  "#fecaca", // 빨강
+  "#fbcfe8", // 분홍
+  "#ddd6fe", // 보라
+  "#bfdbfe", // 파랑
+  "#a5f3fc", // 청록
+  "#bbf7d0", // 초록
+];
+
+/** 형광펜 팝오버 — 스와치는 누르면 바로 적용(SimpleEditor와 동일), 커스텀 색은 ✓ 로 적용 */
+function HighlightPopover({ editor }: { editor: any }) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState("#fef08a");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useOutsideClose(open, setOpen, wrapRef, menuRef);
+
+  const current =
+    (editor.getAttributes("highlight").color as string | undefined) ?? "";
+
+  const openPopover = () => {
+    setPending(/^#([0-9a-f]{6})$/i.test(current) ? current : "#fef08a");
+    setOpen(true);
+  };
+
+  const applyColor = (color: string) => {
+    editor.chain().focus().setHighlight({ color }).run();
+    setOpen(false);
+  };
+
+  const remove = () => {
+    editor.chain().focus().unsetHighlight().run();
+    setOpen(false);
+  };
+
+  return (
+    <div className="re-dd" ref={wrapRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`re-btn ${editor.isActive("highlight") || open ? "on" : ""}`}
+        data-tip="형광펜"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => (open ? setOpen(false) : openPopover())}
+      >
+        <span
+          style={{
+            background: current || "#fef08a",
+            color: "#1a1a1a",
+            padding: "0 4px",
+            borderRadius: 3,
+            fontWeight: 700,
+          }}
+        >
+          A
+        </span>
+      </button>
+      {open && (
+        <FloatingMenu
+          anchorRef={triggerRef}
+          menuRef={menuRef}
+          className="re-dd-menu re-color-menu"
+          role="dialog"
+          aria-label="형광펜 색상 선택"
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).tagName !== "INPUT")
+              e.preventDefault();
+          }}
+        >
+          <div className="re-color-grid">
+            {HIGHLIGHT_SWATCHES.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                className={`re-color-swatch ${current.toLowerCase() === hex ? "on" : ""}`}
+                style={{ background: hex }}
+                data-tip={hex}
+                onClick={() => applyColor(hex)}
+              />
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            <input
+              type="color"
+              value={pending}
+              onChange={(e) => setPending(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label="직접 색 선택"
+              style={{
+                width: 36,
+                height: 28,
+                padding: 0,
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+              }}
+            />
+            <code style={{ fontSize: 12 }}>{pending.toUpperCase()}</code>
+            <button
+              type="button"
+              className="re-btn re-link-apply"
+              data-tip="적용"
+              style={{ marginLeft: "auto" }}
+              onClick={() => applyColor(pending)}
+            >
+              ✓
+            </button>
+          </div>
+
+          <div style={{ marginTop: 10 }}>
+            <button
+              type="button"
+              className="re-btn re-color-remove"
+              onClick={remove}
+              style={{ width: "100%" }}
+            >
+              형광펜 지우기
+            </button>
+          </div>
+        </FloatingMenu>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 찾기/바꾸기 패널                                                    */
+/* ------------------------------------------------------------------ */
+
+/** 찾기/바꾸기 — FindAndReplace 확장(headless)의 명령/스토리지에 자체 UI를 연결한다.
+ *  - 검색어 입력: Enter = 다음 결과, Shift+Enter = 이전 결과, Esc = 닫기
+ *  - 바꿀 말 입력: Enter = 바꾸기
+ *  - 패널이 닫히면(언마운트) 검색어와 하이라이트를 지운다 */
+function FindReplacePanel({
+  editor,
+  onClose,
+}: {
+  editor: any;
+  onClose: () => void;
+}) {
+  const [find, setFind] = useState("");
+  const [repl, setRepl] = useState("");
+  const findRef = useRef<HTMLInputElement>(null);
+
+  const st = useEditorState({
+    editor,
+    selector: ({ editor: e }: { editor: any }) => {
+      const s = e?.storage?.findAndReplace;
+      return {
+        count: (s?.results?.length ?? 0) as number,
+        index: (s?.currentIndex ?? null) as number | null,
+        caseSensitive: !!s?.caseSensitive,
+        wholeWord: !!s?.wholeWord,
+        useRegex: !!s?.useRegex,
+      };
+    },
+  });
+
+  useEffect(() => {
+    requestAnimationFrame(() =>
+      findRef.current?.focus({ preventScroll: true }),
+    );
+    return () => {
+      if (!editor.isDestroyed) editor.commands.clearSearch();
+    };
+  }, [editor]);
+
+  const onFind = (v: string) => {
+    setFind(v);
+    editor.commands.setSearchTerm(v);
+  };
+  const onRepl = (v: string) => {
+    setRepl(v);
+    editor.commands.setReplaceTerm(v);
+  };
+
+  const next = () => editor.commands.goToNextResult();
+  const prev = () => editor.commands.goToPreviousResult();
+  const replaceOne = () => {
+    editor.commands.setReplaceTerm(repl);
+    editor.commands.replace();
+  };
+  const replaceAll = () => {
+    editor.commands.setReplaceTerm(repl);
+    editor.commands.replaceAll();
+  };
+
+  const hasResults = st.count > 0;
+  const countLabel = !find
+    ? ""
+    : hasResults
+      ? `${(st.index ?? 0) + 1} / ${st.count}`
+      : "결과 없음";
+
+  return (
+    <div className="re-find" role="search" aria-label="찾기 및 바꾸기">
+      <div className="re-find-row">
+        <input
+          ref={findRef}
+          className="re-link-input re-find-input"
+          type="text"
+          placeholder="찾기"
+          value={find}
+          onChange={(e) => onFind(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (e.shiftKey) prev();
+              else next();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+        />
+        <span className="re-find-count" aria-live="polite">
+          {countLabel}
+        </span>
+        <TBtn
+          title="이전 결과"
+          label="↑"
+          disabled={!hasResults}
+          onClick={prev}
+        />
+        <TBtn
+          title="다음 결과"
+          label="↓"
+          disabled={!hasResults}
+          onClick={next}
+        />
+        <TBtn
+          title="대소문자 구분"
+          label="Aa"
+          on={st.caseSensitive}
+          onClick={() => editor.commands.setCaseSensitive(!st.caseSensitive)}
+        />
+        <TBtn
+          title="단어 단위 (정규식에서는 무시됨)"
+          label="단어"
+          on={st.wholeWord}
+          disabled={st.useRegex}
+          onClick={() => editor.commands.setWholeWord(!st.wholeWord)}
+        />
+        <TBtn
+          title="정규식"
+          label=".*"
+          on={st.useRegex}
+          onClick={() => editor.commands.setUseRegex(!st.useRegex)}
+        />
+        <TBtn title="닫기" label="✕" onClick={onClose} />
+      </div>
+      <div className="re-find-row">
+        <input
+          className="re-link-input re-find-input"
+          type="text"
+          placeholder="바꿀 말"
+          value={repl}
+          onChange={(e) => onRepl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              replaceOne();
+            }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              onClose();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="re-btn"
+          disabled={!hasResults}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={replaceOne}
+        >
+          바꾸기
+        </button>
+        <button
+          type="button"
+          className="re-btn"
+          disabled={!hasResults}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={replaceAll}
+        >
+          모두 바꾸기
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 이미지 정렬 메뉴                                                    */
+/* ------------------------------------------------------------------ */
+
+/** 이미지를 선택(클릭)했을 때 그 이미지에 붙어서 뜨는 정렬 메뉴.
+ *  - 앵커는 선택된 <img> DOM 요소. 이미지가 바뀌거나 정렬이 바뀌면(이미지가 옆으로 이동) key로 다시 배치한다
+ *  - 메뉴를 눌러도 에디터의 이미지 선택(NodeSelection)이 풀리지 않도록 mousedown 기본 동작을 막는다 */
+function ImageAlignMenu({
+  editor,
+  align,
+  onAlign,
+}: {
+  editor: any;
+  align: "left" | "center" | "right";
+  onAlign: (a: "left" | "center" | "right") => void;
+}) {
+  const anchorRef = useRef<HTMLElement | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const dom = editor.view.nodeDOM(editor.state.selection.from);
+  anchorRef.current = dom instanceof HTMLElement ? dom : null;
+  if (!anchorRef.current) return null;
+
+  return (
+    <FloatingMenu
+      anchorRef={anchorRef}
+      menuRef={menuRef}
+      className="re-dd-menu re-img-menu"
+      role="toolbar"
+      aria-label="이미지 정렬"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <div style={{ display: "flex", gap: 4 }}>
+        <TBtn
+          title="이미지 왼쪽 정렬"
+          label="⇤"
+          on={align === "left"}
+          onClick={() => onAlign("left")}
+        />
+        <TBtn
+          title="이미지 가운데 정렬"
+          label="⇔"
+          on={align === "center"}
+          onClick={() => onAlign("center")}
+        />
+        <TBtn
+          title="이미지 오른쪽 정렬"
+          label="⇥"
+          on={align === "right"}
+          onClick={() => onAlign("right")}
+        />
+      </div>
+    </FloatingMenu>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* 에디터 본체                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -751,19 +1194,27 @@ export function RichEditor({
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image,
+      AlignableImage,
       Underline,
       TextStyle,
       Color,
       FontSize,
+      Highlight.configure({ multicolor: true }),
+      Superscript,
+      Subscript,
+      Typography,
+      Selection,
+      FindAndReplace.configure({ searchDebounceMs: 500 }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TaskList,
       TaskItem.configure({ nested: true }),
       Link.configure({
         openOnClick: false,
+        enableClickSelection: true,
         autolink: true,
         linkOnPaste: true,
         HTMLAttributes: {
@@ -778,6 +1229,19 @@ export function RichEditor({
       attributes: { class: "re-content prose" },
     },
     onUpdate: ({ editor: e }) => onChange(e.getHTML()),
+  });
+
+  // 이미지 선택 상태 구독 — 렌더 중 editor.isActive()를 직접 읽으면 선택만 바뀌었을 때 갱신이 안 될 수 있다
+  const img = useEditorState({
+    editor,
+    selector: ({ editor: e }: { editor: any }) => {
+      const sel = getSelectedImage(e);
+      return {
+        selected: !!sel,
+        pos: sel ? sel.from : 0,
+        align: (sel?.node.attrs.align ?? "left") as "left" | "center" | "right",
+      };
+    },
   });
 
   // 외부 값이 완전히 바뀐 경우(탭 전환) 동기화
@@ -809,6 +1273,52 @@ export function RichEditor({
 
   if (!editor) return <div className="re-wrap" style={{ minHeight: 200 }} />;
 
+  // 이미지가 선택돼 있으면 정렬 버튼은 이미지에, 아니면 문단에 적용한다
+  const imageSelected = img?.selected;
+
+  /** 선택된 이미지의 align 속성을 직접 바꾼다 (updateAttributes 를 거치지 않는다) */
+  const setImageAlign = (a: "left" | "center" | "right") => {
+    const sel = getSelectedImage(editor);
+    if (!sel) return;
+
+    const attrsSpec = sel.node.type.spec.attrs;
+    if (!attrsSpec || !("align" in attrsSpec)) {
+      // setNodeMarkup 은 스키마에 없는 속성을 조용히 버린다 — 그래서 먼저 확인해서 원인을 알려 준다
+      console.error(
+        "[RichEditor] image 노드에 align 속성이 없습니다. AlignableImage 가 extensions 에 등록돼 있는지, " +
+          "다른 Image 확장이 같은 이름('image')으로 덮어쓰고 있지 않은지 확인하세요.",
+        attrsSpec,
+      );
+      return;
+    }
+
+    const tr = editor.state.tr.setNodeMarkup(sel.from, undefined, {
+      ...sel.node.attrs,
+      align: a,
+    });
+    tr.setSelection(NodeSelection.create(tr.doc, sel.from)); // 이미지 선택 유지
+    editor.view.dispatch(tr);
+    editor.view.focus();
+  };
+
+  const setAlign = (a: "left" | "center" | "right" | "justify") => {
+    // 클릭 순간의 실제 선택 상태로 판단 (렌더 때 캡처한 값은 낡았을 수 있다)
+    if (getSelectedImage(editor)) {
+      if (a === "justify") return; // 이미지에는 양쪽 정렬이 없음
+      setImageAlign(a);
+    } else {
+      editor.chain().focus().setTextAlign(a).run();
+    }
+  };
+
+  const isAlign = (a: "left" | "center" | "right" | "justify") =>
+    imageSelected ? img.align === a : editor.isActive({ textAlign: a });
+
+  const closeFind = () => {
+    setFindOpen(false);
+    editor.commands.focus();
+  };
+
   return (
     <div className="re-wrap">
       <div className="re-toolbar">
@@ -838,31 +1348,60 @@ export function RichEditor({
           on={editor.isActive("strike")}
           onClick={() => editor.chain().focus().toggleStrike().run()}
         />
+        <TBtn
+          title="인라인 코드"
+          label={<span style={{ fontFamily: "monospace" }}>{"</>"}</span>}
+          on={editor.isActive("code")}
+          onClick={() => editor.chain().focus().toggleCode().run()}
+        />
         <ColorPopover editor={editor} />
+        <HighlightPopover editor={editor} />
+        <span className="re-sep" />
+        <TBtn
+          title="위 첨자"
+          label={
+            <span>
+              x<sup>2</sup>
+            </span>
+          }
+          on={editor.isActive("superscript")}
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        />
+        <TBtn
+          title="아래 첨자"
+          label={
+            <span>
+              x<sub>2</sub>
+            </span>
+          }
+          on={editor.isActive("subscript")}
+          onClick={() => editor.chain().focus().toggleSubscript().run()}
+        />
         <span className="re-sep" />
         <TBtn
           title="왼쪽 정렬"
           label="⇤"
-          on={editor.isActive({ textAlign: "left" })}
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
+          on={isAlign("left")}
+          onClick={() => setAlign("left")}
         />
         <TBtn
           title="가운데 정렬"
           label="⇔"
-          on={editor.isActive({ textAlign: "center" })}
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
+          on={isAlign("center")}
+          onClick={() => setAlign("center")}
         />
         <TBtn
           title="오른쪽 정렬"
           label="⇥"
-          on={editor.isActive({ textAlign: "right" })}
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
+          on={isAlign("right")}
+          onClick={() => setAlign("right")}
         />
         <TBtn
           title="양쪽 정렬"
           label="☰"
-          on={editor.isActive({ textAlign: "justify" })}
-          onClick={() => editor.chain().focus().setTextAlign("justify").run()}
+          on={isAlign("justify")}
+          disabled={imageSelected}
+          onClick={() => setAlign("justify")}
         />
         <span className="re-sep" />
         <TBtn
@@ -888,6 +1427,12 @@ export function RichEditor({
           label="❝"
           on={editor.isActive("blockquote")}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        />
+        <TBtn
+          title="코드 블록"
+          label={<span style={{ fontFamily: "monospace" }}>{"{ }"}</span>}
+          on={editor.isActive("codeBlock")}
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         />
         <TBtn
           title="구분선"
@@ -917,6 +1462,13 @@ export function RichEditor({
         />
         <span className="re-sep" />
         <TBtn
+          title="찾기/바꾸기"
+          label="🔍"
+          on={findOpen}
+          onClick={() => setFindOpen((v) => !v)}
+        />
+        <span className="re-sep" />
+        <TBtn
           title="실행 취소"
           label="↶"
           onClick={() => editor.chain().focus().undo().run()}
@@ -929,6 +1481,15 @@ export function RichEditor({
           disabled={!editor.can().redo()}
         />
       </div>
+      {findOpen && <FindReplacePanel editor={editor} onClose={closeFind} />}
+      {imageSelected && (
+        <ImageAlignMenu
+          key={`${img.pos}-${img.align}`}
+          editor={editor}
+          align={img.align}
+          onAlign={setImageAlign}
+        />
+      )}
       {/* 플레이스홀더는 본문 영역 기준으로 — 툴바가 여러 줄이 돼도 안 밀림 (v1.9 사용자 발견) */}
       <div className="re-body">
         <EditorContent editor={editor} />

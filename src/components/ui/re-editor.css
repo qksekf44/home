@@ -236,7 +236,7 @@
   color: var(--re-muted);
 }
 
-/* ---------- 글자 색상 ---------- */
+/* ---------- 글자 색상 / 형광펜 ---------- */
 .re-color-trigger {
   flex-direction: column;
   gap: 1px;
@@ -283,6 +283,43 @@
   width: 100%;
   justify-content: center;
   color: var(--re-muted);
+}
+
+/* ---------- 이미지 정렬 메뉴 (이미지를 선택하면 이미지 옆에 뜸) ---------- */
+.re-img-menu {
+  min-width: 0; /* .re-dd-menu 의 min-width: 160px 를 덮어써서 버튼 3개 폭만큼만 */
+  padding: 4px;
+}
+
+/* ---------- 찾기/바꾸기 패널 (툴바와 본문 사이) ---------- */
+.re-find {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--re-toolbar-bg);
+  border-bottom: 1px solid var(--re-border);
+}
+
+.re-find-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.re-find-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  width: auto; /* .re-link-input 의 width: 100% 를 풀어서 옆 버튼들과 한 줄에 놓이게 */
+}
+
+.re-find-count {
+  min-width: 56px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--re-muted);
+  white-space: nowrap;
 }
 
 /* ---------- 본문 영역 ---------- */
@@ -342,11 +379,35 @@
   color: var(--re-muted);
 }
 
+/* 인라인 코드 */
 .re-content code {
   background: var(--re-code-bg);
   border-radius: 4px;
   padding: 0.1em 0.35em;
   font-size: 0.9em;
+}
+
+/* 코드 블록 — 안쪽 code 는 인라인 코드용 배경/패딩을 걷어낸다 */
+.re-content pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--re-code-bg);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.re-content pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* 형광펜 */
+.re-content mark {
+  border-radius: 2px;
+  padding: 0 0.1em;
 }
 
 .re-content hr {
@@ -355,13 +416,51 @@
   margin: 1em 0;
 }
 
+/* Selection 확장 — 에디터가 포커스를 잃어도(팝오버/찾기 패널 사용 중) 선택 영역이 보이도록 */
+.re-content .selection {
+  background-color: rgba(37, 99, 235, 0.25);
+  background-color: color-mix(in srgb, var(--re-accent) 28%, transparent);
+}
+
+/* ---------- 이미지 ----------
+   블록 배치가 기본. 정렬은 data-align 으로 보장한다 — 인라인 style 이 새니타이저에 지워져도 유지되도록.
+   (.re-render 는 저장된 HTML 을 렌더하는 쪽 컨테이너 클래스로 바꿔서 쓸 것 — 없으면 이 셀렉터는 무시된다) */
 .re-content img {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
   display: block;
+  cursor: pointer;
 }
 
+/* 선택된 이미지 표시 (클릭하면 NodeSelection → ProseMirror 가 이 클래스를 붙인다) */
+.re-content img.ProseMirror-selectednode {
+  outline: 2px solid var(--re-accent);
+  outline-offset: 2px;
+}
+
+.re-content img[data-align="left"],
+.re-render img[data-align="left"] {
+  display: block;
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.re-content img[data-align="center"],
+.re-render img[data-align="center"] {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.re-content img[data-align="right"],
+.re-render img[data-align="right"] {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* ---------- 목록 ---------- */
 .re-content ul,
 .re-content ol {
   padding-left: 1.4em;
@@ -420,11 +519,7 @@
     padding: 12px;
     font-size: 16px; /* iOS 자동 확대 방지 */
   }
-  /* 팝오버 안 입력칸도 16px 미만이면 iOS가 포커스할 때 화면을 확대한다 */
   .re-link-input {
     font-size: 16px;
   }
-
-  /* 팝오버의 위/아래·좌/우 배치는 FloatingMenu(JS)가 뷰포트 기준으로 계산하므로
-     예전의 "bottom-up" / "right: 0" 모바일 전용 규칙은 제거했다. */
 }
